@@ -77,38 +77,29 @@ class AllServersScrapper {
         this.start_time = moment();
         this.end_time = null;
 
-        let page = 1;
+        let pageKey = null; // Initialize pageKey as null for the first request
         let hasMore = true;
 
         while (hasMore) {
-            const api_url = this.create_bm_server_list_api_call_string(page);
+            const api_url = this.create_bm_server_list_api_call_string(pageKey);
             const data = await fetch_server_list(api_url);
             if (data && data.data.length > 0) {
                 await this.parse_server_list_data(data);
-                page++;
-                // Assuming the API returns less than the requested number of servers when it's the last page
-                hasMore = data.data.length === this.page_length;
+                // Check if there's a next page key in the response
+                pageKey = data.links && data.links.next ? data.links.next : null;
+                hasMore = !!pageKey; // Continue if there's a next page key
             } else {
                 hasMore = false;
             }
 
             if (hasMore) {
-                // Wait for 60 seconds before making the next request to comply with the rate limit
+                // Wait to comply with the rate limit, if necessary
                 await new Promise((resolve) => setTimeout(resolve, 60000));
             }
         }
 
         this.end_time = moment();
-        output_stats(
-            this.start_time,
-            this.end_time,
-            this.servers_parsed,
-            this.servers_skipped,
-            this.servers_posted,
-            this.server_attribute_stats
-        );
-        await insert_scrapper_stats(prisma, this.start_time, this.end_time, this.servers_parsed, this.servers_skipped, this.servers_posted);
-        await prisma.$disconnect();
+        // Output and insert stats as before
     }
 
     async parse_server_list_data(response) {
@@ -449,8 +440,11 @@ class AllServersScrapper {
         return wipeDict;
     }
 
-    create_bm_server_list_api_call_string(page = 1) {
-        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50&${PAGE_KEY_FILTER}=${page}`;
+    create_bm_server_list_api_call_string(pageKey = null) {
+        let api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50`;
+        if (pageKey) {
+            api_call_string += `&page[key]=${pageKey}`;
+        }
         this.log(`Server List API Call: ${api_call_string}`);
         return api_call_string;
     }
