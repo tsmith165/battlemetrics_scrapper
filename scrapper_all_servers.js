@@ -450,7 +450,7 @@ class AllServersScrapper {
     }
 
     create_bm_server_list_api_call_string(page = 1) {
-        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50&${PAGE_KEY_FILTER}=${page}&sort=-details.rust_last_wipe`;
+        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50&page=${page}`;
         this.log(`Server List API Call: ${api_call_string}`);
         return api_call_string;
     }
