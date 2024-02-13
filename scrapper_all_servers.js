@@ -94,7 +94,8 @@ class AllServersScrapper {
 
             if (hasMore) {
                 // Wait to comply with the rate limit, if necessary
-                await new Promise((resolve) => setTimeout(resolve, 60000));
+                console.log('Waiting for 5 seconds to comply with the rate limit...');
+                await new Promise((resolve) => setTimeout(resolve, 5000));
             }
         }
 
