@@ -7,7 +7,7 @@ const AllServersScrapper = require('./scrapper_all_servers.js');
 
 const scrapper = new AllServersScrapper({
     max_days_old: 150,
-    min_rank: 5000,
+    min_rank: 15000,
 });
 
 scrapper
