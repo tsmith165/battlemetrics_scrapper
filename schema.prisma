@@ -1,0 +1,41 @@
+// /rust_wipes/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("PS_DATABASE_URL")
+}
+
+model server_parsed {
+  id              Int      @id // Battle Metrics ID
+  rank            Int          // Battle Metrics Rank
+  title           String       // Server Title
+  region          String       // Server Region - NA / SA / EU / OCE / ASIA / AFRICA
+  wipe_schedule   String?      // Wipe Schedule - Weekly / Bi-Weekly / Monthly (HAVENT YET IMPLEMENTED SCRAPING THIS DATA)
+  game_mode       String?      // PvP/PvE/Arena/Build
+  resource_rate   String?      // 1x/1.5x/2x/3x/4x/5x/10x/20x/50x/etc
+  group_limit     String?      // solo / duo / trio / quad / no limit
+  last_wipe       String?      // Last Wipe Timestamp
+  next_wipe       String?      // Next Wipe Timestamp
+  next_wipe_full  String?      // Next Full Wipe Timestamp
+  next_wipe_is_bp Boolean?      // Next Wipe is Blueprint Wipe
+}
+
+model scrapper_stats {
+  id                Int      @id @default(autoincrement())
+  date              DateTime @default(now())
+  scrapper_duration Int?
+  servers_parsed    Int?
+  servers_skipped   Int?
+  servers_posted    Int?
+}
+
+model server_network {
+  id           Int      @id // Network ID
+  bm_ids       String       // Rank Dictionary
+  name         String       // Server Title
+  region       String       // Server Region - NA / SA / EU / OCE / ASIA / AFRICA
+}

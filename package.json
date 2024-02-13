@@ -1,0 +1,24 @@
+{
+    "name": "battlemetrics_scrapper",
+    "version": "0.1.1",
+    "private": true,
+    "engines": {
+        "node": "18.x"
+    },
+    "scripts": {
+        "dev": "next dev",
+        "build": "prisma generate && next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.9.1",
+        "dotenv": "^16.4.3",
+        "moment": "^2.30.1",
+        "axios": "^1.6.7"
+    },
+    "devDependencies": {
+        "@types/node": "20.11.17",
+        "eslint": "8.56.0"
+    }
+}
