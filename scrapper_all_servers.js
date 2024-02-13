@@ -77,24 +77,23 @@ class AllServersScrapper {
         this.start_time = moment();
         this.end_time = null;
 
-        let pageKey = null; // Initialize pageKey as null for the first request
+        let nextPageUrl = this.create_bm_server_list_api_call_string(); // Start with the initial URL
         let hasMore = true;
 
-        while (hasMore) {
-            const api_url = this.create_bm_server_list_api_call_string(pageKey);
-            const data = await fetch_server_list(api_url);
+        while (hasMore && nextPageUrl) {
+            const data = await fetch_server_list(nextPageUrl); // Use the full URL directly
             if (data && data.data.length > 0) {
                 await this.parse_server_list_data(data);
-                // Check if there's a next page key in the response
-                pageKey = data.links && data.links.next ? data.links.next : null;
-                hasMore = !!pageKey; // Continue if there's a next page key
+                // Extract the next page URL from the response, if available
+                nextPageUrl = data.links && data.links.next ? data.links.next : null;
+                hasMore = !!nextPageUrl;
             } else {
                 hasMore = false;
             }
 
             if (hasMore) {
                 // Wait to comply with the rate limit, if necessary
-                console.log('Waiting for 5 seconds to comply with the rate limit...');
+                console.log('Waiting for 5 seconds before fetching the next page...');
                 await new Promise((resolve) => setTimeout(resolve, 5000));
             }
         }
@@ -441,12 +440,9 @@ class AllServersScrapper {
         return wipeDict;
     }
 
-    create_bm_server_list_api_call_string(pageKey = null) {
-        let api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50`;
-        if (pageKey) {
-            api_call_string += `&page[key]=${pageKey}`;
-        }
-        this.log(`Server List API Call: ${api_call_string}`);
+    create_bm_server_list_api_call_string() {
+        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50`;
+        this.log(`Initial Server List API Call: ${api_call_string}`);
         return api_call_string;
     }
 }
