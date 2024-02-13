@@ -4,6 +4,7 @@ const COUNTRY_FILTER = 'filter[countries][]';
 const DISTANCE_FILTER = 'filter[maxDistance]';
 const PLAYERS_FILTER = 'filter[players][min]';
 const PAGE_LEN_FILTER = 'page[size]';
+const PAGE_KEY_FILTER = 'page[key]';
 const WIPE_FILTER = 'sort=-details.rust_last_wipe';
 
 const MY_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
