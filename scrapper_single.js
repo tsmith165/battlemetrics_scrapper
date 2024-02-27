@@ -170,7 +170,6 @@ class SingleScrapper {
         this.log(`Rust Next Wipe: ${rust_next_wipe ? rust_next_wipe : 'N/A'}`);
         this.log(`Rust Next Wipe Full: ${rust_next_wipe_full ? rust_next_wipe_full : 'N/A'}`);
         this.log(`Next Wipe is BP: ${next_wipe_is_bp}`);
-        this.log('-'.repeat(60));
 
         // Server exclusion logic
         // Rank of server greater than set min rank
