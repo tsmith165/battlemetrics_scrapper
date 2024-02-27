@@ -3,7 +3,6 @@
 const moment = require('moment');
 const { PrismaClient } = require('@prisma/client');
 
-console.log(`Scrapper Single DB URL: ${process.env.PS_DATABASE_URL}`);
 const prisma = new PrismaClient();
 
 const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('./bm_scrapper_attributes');
@@ -21,7 +20,7 @@ const { fetch_server_list, count_keywords_in_string } = require('./scrapper_gene
 const { insert_scrapper_stats, output_stats } = require('./scrapper_stats_helper');
 const { create_db_connection } = require('./db_connection_helper');
 
-class SingleScrapper {
+class WholeDBUpdate {
     constructor() {
         this.page_length = 25; // fetch the most recent 25 bm servers only
         this.distance = 5000;
@@ -76,23 +75,46 @@ class SingleScrapper {
         this.start_time = moment();
         this.end_time = null;
 
-        const api_url = this.create_bm_server_list_api_call_string();
+        let nextPageUrl = this.create_bm_server_list_api_call_string(); // Start with the initial URL
+        let hasMore = true;
 
-        const data = await fetch_server_list(api_url);
-        if (data) {
-            await this.parse_server_list_data(data);
+        while (hasMore && nextPageUrl) {
+            this.start_time = moment();
+            const data = await fetch_server_list(nextPageUrl); // Use the full URL directly
+            if (data && data.data.length > 0) {
+                await this.parse_server_list_data(data);
+                // Extract the next page URL from the response, if available
+                nextPageUrl = data.links && data.links.next ? data.links.next : null;
+                hasMore = !!nextPageUrl;
+            } else {
+                hasMore = false;
+            }
+
+            this.end_time = moment();
+            output_stats(
+                this.start_time,
+                this.end_time,
+                this.servers_parsed,
+                this.servers_skipped,
+                this.servers_posted,
+                this.server_attribute_stats
+            );
+            await insert_scrapper_stats(
+                prisma,
+                this.start_time,
+                this.end_time,
+                this.servers_parsed,
+                this.servers_skipped,
+                this.servers_posted
+            );
+
+            if (hasMore) {
+                // Wait to comply with the rate limit, if necessary
+                console.log('Waiting for 5 seconds before fetching the next page...');
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
         }
 
-        this.end_time = moment();
-        output_stats(
-            this.start_time,
-            this.end_time,
-            this.servers_parsed,
-            this.servers_skipped,
-            this.servers_posted,
-            this.server_attribute_stats
-        );
-        await insert_scrapper_stats(prisma, this.start_time, this.end_time, this.servers_parsed, this.servers_skipped, this.servers_posted);
         await prisma.$disconnect();
     }
 
@@ -256,7 +278,7 @@ class SingleScrapper {
                     ip: ip,
                     title: title,
                     region: typeof region === String ? region : 'NA',
-                    players: players,
+                    players: parseInt(players) || 0,
                     wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
                     game_mode: game_mode || null,
                     resource_rate: resource_rate || null,
@@ -277,7 +299,7 @@ class SingleScrapper {
                     rank: rank,
                     title: title,
                     region: typeof attributes.region === String ? attributes.region : 'NA',
-                    players: players,
+                    players: parseInt(players) || 0,
                     wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
                     game_mode: game_mode || null,
                     resource_rate: resource_rate || null,
@@ -359,7 +381,6 @@ class SingleScrapper {
             console.error('Error parsing server description:', e);
             description = '';
         }
-
         // console.log(`Title: ${title}`);
         // console.log(`Description: ${description}`);
 
@@ -429,4 +450,4 @@ class SingleScrapper {
     }
 }
 
-module.exports = SingleScrapper;
+module.exports = WholeDBUpdate;
