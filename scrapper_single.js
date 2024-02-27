@@ -254,7 +254,7 @@ class SingleScrapper {
                     rank: rank,
                     ip: ip,
                     title: title,
-                    region: typeof region === String ? region : 'NA',
+                    region: typeof region === String ? region : 'US',
                     players: players,
                     wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
                     game_mode: game_mode || null,
@@ -275,7 +275,7 @@ class SingleScrapper {
                 data: {
                     rank: rank,
                     title: title,
-                    region: typeof attributes.region === String ? attributes.region : 'NA',
+                    region: typeof attributes.region === String ? attributes.region : 'US',
                     players: players,
                     wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
                     game_mode: game_mode || null,
