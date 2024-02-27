@@ -212,7 +212,6 @@ class IntervalScrapper {
 
         await this.insert_into_db(dataToInsert);
         this.servers_posted++;
-        this.log('-'.repeat(60));
     }
 
     async insert_into_db(data) {

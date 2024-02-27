@@ -240,7 +240,6 @@ class WholeDBUpdate {
 
         await this.insert_into_db(final_data_to_insert);
         this.servers_posted++;
-        this.log('-'.repeat(60));
     }
 
     async insert_into_db(data) {
