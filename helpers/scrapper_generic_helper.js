@@ -138,18 +138,19 @@ function parse_grouped_attributes_for_max(server_attributes) {
 }
 
 async function search_for_existing_and_combine(prisma, bm_id, data_to_compare) {
-    const existing_data = await prisma.server_parsed.findUnique({
+    const existing_data = await prisma.parsed_server.findUnique({
         where: { id: parseInt(bm_id, 10) },
     });
 
     if (!existing_data) {
-        console.log(`No existing records found matching Battle Metrics ID: ${bm_id}`);
+        console.log(`No existing BM ID ${bm_id} records found - inserting new record.`);
         return data_to_compare;
     }
 
     // loop the data_to_compare and combine existing data with new data.  If fields are missing in new data, use existing data fields
     const combined_data = {};
 
+    console.log(`Found existing BM ID ${bm_id} records - combining existing and new data.`);
     for (const [key, value] of Object.entries(data_to_compare)) {
         if (value === null || value === undefined || value === '' || value === 'N/A' || value === 'null') {
             combined_data[key] = existing_data[key];
@@ -181,7 +182,7 @@ async function insert_into_db(prisma, data) {
     const { game_mode, wipe_schedule, resource_rate, group_limit } = attributes;
 
     // Check if the server already exists in the DB
-    const existing_data = await prisma.server_parsed.findUnique({
+    const existing_data = await prisma.parsed_server.findUnique({
         where: { id: parseInt(bm_id, 10) },
     });
     const new_record = existing_data ? false : true;
@@ -189,7 +190,7 @@ async function insert_into_db(prisma, data) {
     // Use Prisma for DB Operations
     if (new_record) {
         // Insert into server_parsed
-        await prisma.server_parsed.create({
+        await prisma.parsed_server.create({
             data: {
                 id: parseInt(bm_id, 10),
                 rank: rank,
@@ -211,7 +212,7 @@ async function insert_into_db(prisma, data) {
             },
         });
     } else {
-        await prisma.server_parsed.update({
+        await prisma.parsed_server.update({
             where: { id: parseInt(bm_id, 10) },
             data: {
                 rank: rank,

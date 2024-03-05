@@ -9,8 +9,9 @@ datasource db {
   url      = env("PS_DATABASE_URL")
 }
 
-model server_parsed {
+model parsed_server {
   id              Int  @id // Battle Metrics ID
+  timestamp       DateTime @default(now())
   rank            Int      // Battle Metrics Rank
   ip              String?  // Server IP
   title           String   // Server Title
@@ -36,8 +37,10 @@ model server_parsed {
   bp_wipe_dow     Int?     // Day of week for blueprint wipe (0-6)
 }
 
-model wipes {
-  id          Int  @id // Battle Metrics ID
+model wipe_history {
+  id          Int  @id @default(autoincrement())
+  bm_id       Int       // Battle Metrics ID
+  timestamp   DateTime @default(now())
   wipe_time   String   // Wipe Time
   is_bp       String   // Is Blueprint Wipe
   title       String?  // Server Title

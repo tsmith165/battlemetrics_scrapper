@@ -160,18 +160,18 @@ class BaseScrapper {
         console.log('Server Attribute Stats:\n', server_attribute_stats);
 
         // Check if the wipe time exists in the database
-        const wipeTimeExists = await this.prisma.wipes.findFirst({
+        const wipeTimeExists = await this.prisma.wipe_history.findFirst({
             where: {
-                id: parseInt(id),
+                bm_id: parseInt(id),
                 wipe_time: rust_last_wipe, // Assuming this is the wipe time
             },
         });
 
         // If the wipe time doesn't exist, insert it
         if (!wipeTimeExists) {
-            await this.prisma.wipes.create({
+            await this.prisma.wipe_history.create({
                 data: {
-                    id: parseInt(id),
+                    bm_id: parseInt(id),
                     wipe_time: rust_last_wipe,
                     is_bp: next_wipe_is_bp ? 'true' : 'false',
                     title: name,
@@ -182,7 +182,7 @@ class BaseScrapper {
         }
 
         // pull wipe_time field for all records with id = server.id
-        const wipe_times = await this.prisma.wipes.findMany({
+        const wipe_times = await this.prisma.wipe_history.findMany({
             where: {
                 id: parseInt(id),
             },
@@ -281,6 +281,7 @@ class BaseScrapper {
         // pull current data for BM ID and if data from current data is better than new data, only update fields that are better
         const final_data_to_insert = await search_for_existing_and_combine(this.prisma, id, dataToInsert);
 
+        // console.log(`Final ${id} Data to Insert:`, final_data_to_insert);
         await insert_into_db(this.prisma, final_data_to_insert);
         this.servers_posted++;
     }
@@ -293,6 +294,7 @@ class BaseScrapper {
             const data = await this.fetch_api_url(nextPageUrl);
             if (data && data.data) {
                 await this.parse_server_list_data(data);
+                console.log(`data.links.next: ${data.links.next}`);
                 // Check if there's a "next" link for pagination
                 nextPageUrl = data.links && data.links.next ? data.links.next : null;
                 hasMorePages = !!nextPageUrl; // Continue if there's a next page
@@ -302,6 +304,8 @@ class BaseScrapper {
 
             if (hasMorePages) {
                 console.log('Fetching next page...');
+            } else {
+                console.log('No more pages to fetch.');
             }
         }
     }

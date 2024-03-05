@@ -14,7 +14,7 @@ const argv = yargs(hideBin(process.argv)).options({
 }).argv;
 
 const scrapper = new Scrapper({
-    max_days_old: 150,
+    max_days_old: 300,
     min_rank: 5000,
     interval: argv.interval,
     all: argv.all,
