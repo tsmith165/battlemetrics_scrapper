@@ -6,7 +6,7 @@
         "node": "18.x"
     },
     "scripts": {
-        "start": "node /rust_wipes/battlemetrics_scrapper/run_single_scrapper.js"
+        "start": "node /rust_wipes/battlemetrics_scrapper/tests/run_scrapper.js -i -d 20000"
     },
     "dependencies": {
         "@prisma/client": "^5.9.1",
