@@ -100,6 +100,9 @@ function parse_server_attributes(title, description) {
         if (groupKey === 'resource_rate' && Object.keys(server_attributes[groupKey]).length === 0) {
             server_attributes[groupKey]['1x'] = 1;
         }
+        if (groupKey === 'game_mode' && Object.keys(server_attributes[groupKey]).length === 0) {
+            server_attributes[groupKey]['pvp'] = 1;
+        }
     }
     return server_attributes;
 }
