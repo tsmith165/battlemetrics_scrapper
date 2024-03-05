@@ -1,4 +1,4 @@
-// /lib/battlemetrics_scrapper/scrapper_interval.js
+// /lib/battlemetrics_scrapper/scrapper_single.js
 
 const moment = require('moment');
 const { PrismaClient } = require('@prisma/client');
@@ -6,9 +6,6 @@ const { PrismaClient } = require('@prisma/client');
 console.log(`Scrapper Single DB URL: ${process.env.PS_DATABASE_URL}`);
 const prisma = new PrismaClient();
 
-require('dotenv').config();
-
-const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('./bm_scrapper_attributes');
 const {
     BM_API_BASE_URL,
     BASE_FILTER,
@@ -16,14 +13,16 @@ const {
     DISTANCE_FILTER,
     PLAYERS_FILTER,
     PAGE_LEN_FILTER,
+    PAGE_KEY_FILTER,
     MY_DATE_FORMAT,
     BM_DATE_FORMAT,
-} = require('./bm_scrapper_constants');
-const { fetch_server_list, count_keywords_in_string } = require('./scrapper_generic_helper');
-const { insert_scrapper_stats, output_stats } = require('./scrapper_stats_helper');
-const { create_db_connection } = require('../helpers/db_connection_helper');
+} = require('@utils/bm_scrapper_constants');
+const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('@utils/bm_scrapper_attributes');
+const { fetch_api_url, count_keywords_in_string } = require('@helpers/scrapper_generic_helper');
+const { insert_scrapper_stats, output_stats } = require('@helpers/scrapper_stats_helper');
+const { create_db_connection } = require('@helpers/db_connection_helper');
 
-class IntervalScrapper {
+class AllServersScrapper {
     constructor() {
         this.page_length = 25; // fetch the most recent 25 bm servers only
         this.distance = 5000;
@@ -35,26 +34,8 @@ class IntervalScrapper {
         this.servers_posted = 0;
         this.servers_skipped = 0;
         this.server_attribute_stats = {};
-        this.logEnabled = true;
-        this.logBuffer = [];
         this.bufferLogs = false;
     }
-
-    log(...args) {
-        if (this.logEnabled) {
-            if (this.bufferLogs) {
-                this.logBuffer.push(args.join(' '));
-            } else {
-                console.log(...args);
-            }
-        }
-    }
-
-    flushLogs() {
-        this.logBuffer.forEach((message) => console.log(message));
-        this.logBuffer = []; // Reset the buffer
-    }
-
     async run() {
         const db_url = process.env.PS_DATABASE_URL;
         console.log('DB URL:', db_url);
@@ -65,33 +46,9 @@ class IntervalScrapper {
             return;
         }
 
-        // Start the scrapper with interval
-        const run_interval = 5000;
-        this.runInterval(run_interval)
-            .then(() => {
-                console.log(`Scrapper has been set up to run at ${run_interval / 1000} second intervals.`);
-            })
-            .catch((err) => {
-                console.error('Error setting up scrapper interval run:', err);
-            });
-    }
-
-    async runInterval(interval) {
-        // Error handling and interval running are set here
-        const intervalRun = async () => {
-            try {
-                await this.run_scrapper(); // This is your existing method to run the scrapper
-                console.log('Scrapper run completed. Next run scheduled after interval.');
-            } catch (error) {
-                console.error('Error running scrapper:', error);
-            }
-        };
-
-        // Run first time immediately
-        await intervalRun();
-
-        // Then set to run at intervals
-        setInterval(intervalRun, interval);
+        // Start the scrapper
+        await this.run_scrapper(); // This is your existing method to run the scrapper
+        console.log('Scrapper run completed. Next run scheduled after interval.');
     }
 
     async run_scrapper() {
@@ -102,24 +59,29 @@ class IntervalScrapper {
         this.start_time = moment();
         this.end_time = null;
 
-        const api_url = this.create_bm_server_list_api_call_string();
+        let nextPageUrl = this.create_bm_server_list_api_call_string(); // Start with the initial URL
+        let hasMore = true;
 
-        const data = await fetch_server_list(api_url);
-        if (data) {
-            await this.parse_server_list_data(data);
+        while (hasMore && nextPageUrl) {
+            const data = await fetch_api_url(nextPageUrl); // Use the full URL directly
+            if (data && data.data.length > 0) {
+                await this.parse_server_list_data(data);
+                // Extract the next page URL from the response, if available
+                nextPageUrl = data.links && data.links.next ? data.links.next : null;
+                hasMore = !!nextPageUrl;
+            } else {
+                hasMore = false;
+            }
+
+            if (hasMore) {
+                // Wait to comply with the rate limit, if necessary
+                console.log('Waiting for 5 seconds before fetching the next page...');
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
         }
 
         this.end_time = moment();
-        output_stats(
-            this.start_time,
-            this.end_time,
-            this.servers_parsed,
-            this.servers_skipped,
-            this.servers_posted,
-            this.server_attribute_stats
-        );
-        await insert_scrapper_stats(prisma, this.start_time, this.end_time, this.servers_parsed, this.servers_skipped, this.servers_posted);
-        await prisma.$disconnect();
+        // Output and insert stats as before
     }
 
     async parse_server_list_data(response) {
@@ -146,37 +108,61 @@ class IntervalScrapper {
             return;
         }
 
-        var { id, rank, name, players, maxPlayers, details, rust_description, rust_last_wipe } = attrs;
+        var { id, rank, name, players, max_players, details, rust_description, rust_last_wipe } = attrs;
+        var rust_next_wipe_map, rust_next_wipe_full, rust_next_wipe_bp, rust_next_wipe, next_wipe_is_bp;
+
+        const extra_debug = false;
+        if (extra_debug) {
+            this.log(`*`.repeat(140));
+            this.log(`*`.repeat(20) + ` Attributes for Server ${id} ${name} ` + `-`.repeat(20));
+            this.log(`Server ${id} ${name} Full Attributes (Next Line):`);
+            for (const [key, value] of Object.entries(attrs)) {
+                this.log(`${key}: ${value}`);
+            }
+
+            this.log(`-`.repeat(20) + ` Details ` + `-`.repeat(20));
+            for (const [key, value] of Object.entries(details)) {
+                this.log(`${key}: ${value}`);
+            }
+        }
+
         rust_description = details ? details.rust_description : '';
         rust_last_wipe = details ? details.rust_last_wipe : null;
+        rust_next_wipe = details ? details.rust_last_wipe : null;
+        rust_next_wipe_map = details ? details.rust_next_wipe_map : null;
+        rust_next_wipe_full = details ? details.rust_next_wipe_full : null;
+        rust_next_wipe_bp = details ? details.rust_next_wipe_bp : null;
 
-        const wipeDateTime = rust_last_wipe ? moment(new Date(rust_last_wipe)).format(BM_DATE_FORMAT) : null;
-        const wipeMoment = rust_last_wipe ? moment(new Date(rust_last_wipe)) : null;
-        const wipeWeekday = wipeMoment ? wipeMoment.isoWeekday() : null;
-        const wipeDay = wipeMoment ? wipeMoment.date() : null;
-        const force_wipe = wipeWeekday === 4 && wipeDay < 8;
+        rust_next_wipe = rust_next_wipe_map ? rust_next_wipe_map : rust_next_wipe;
+        rust_next_wipe = rust_next_wipe ? moment(new Date(rust_next_wipe)).format(BM_DATE_FORMAT) : null;
+        rust_next_wipe_full = rust_next_wipe_bp ? rust_next_wipe_bp : rust_next_wipe_full;
+        rust_next_wipe_full = rust_next_wipe_full ? moment(new Date(rust_next_wipe_full)).format(BM_DATE_FORMAT) : null;
 
+        // check if next wipe is force wipe by comparing which date from rust_next_wipe or rust_next_wipe_full is closer to current date
+        next_wipe_is_bp = false;
+        if (rust_next_wipe && rust_next_wipe_full) {
+            const next_wipe_moment = moment(new Date(rust_next_wipe));
+            const next_wipe_full_moment = moment(new Date(rust_next_wipe_full));
+            const current_moment = moment();
+
+            const next_wipe_diff = Math.abs(next_wipe_moment.diff(current_moment));
+            const next_wipe_full_diff = Math.abs(next_wipe_full_moment.diff(current_moment));
+
+            next_wipe_is_bp = next_wipe_diff > next_wipe_full_diff;
+        }
+
+        this.log(`-`.repeat(20) + ` Parsed Attrs ` + `-`.repeat(20));
         this.log(`BM ID: ${id} | Name: ${name}`);
-        this.log(`Rank: ${rank} | Players: ${players}/${maxPlayers}`);
-        this.log(`Last Wipe: ${wipeDateTime ? wipeDateTime : 'N/A'} | Force Wipe?: ${force_wipe}`);
+        this.log(`Rank: ${rank} | Players: ${players}/${max_players}`);
+        this.log(`Rust Next Wipe: ${rust_next_wipe ? rust_next_wipe : 'N/A'}`);
+        this.log(`Rust Next Wipe Full: ${rust_next_wipe_full ? rust_next_wipe_full : 'N/A'}`);
+        this.log(`Next Wipe is BP: ${next_wipe_is_bp}`);
 
         // Server exclusion logic
         // Rank of server greater than set min rank
         if (rank > this.min_rank) {
             this.log(`Not saving servers with rank > ${this.min_rank} in DB. Skipping ${name}. Amount skipped:', this.servers_skipped`);
             this.servers_skipped++;
-            return;
-        }
-        // Server has no wipe time and is not force wipe
-        if (wipeDateTime && moment().diff(wipeDateTime, 'days') > this.max_days_old) {
-            this.log(`Wipe is older than ${this.max_days_old} days old. Skipping. Amount skipped:', this.servers_skipped`);
-            this.servers_skipped++;
-            return;
-        }
-        // Server has no wipe time
-        if (!wipeDateTime) {
-            this.servers_skipped++;
-            this.log('Skipping because wipe time already exists. Amount skipped:', this.servers_skipped);
             return;
         }
 
@@ -188,26 +174,15 @@ class IntervalScrapper {
         const maxAttributes = this.parse_grouped_attributes_for_max(serverAttributes);
         // console.log('Max Attributes:\n', maxAttributes);
 
-        // Search for BM_ID already in our DB - if found, append current wipe time to array
-        const [wipe_array, most_frequent_wipe, second_frequent_wipe, new_record] = await this.search_existing(id, wipeDateTime, force_wipe);
-
-        if (new_record === false && !wipe_array) {
-            this.servers_skipped++;
-            this.log('Skipping because wipe time already exists. Amount skipped:', this.servers_skipped);
-            return;
-        }
-
         const dataToInsert = {
             bm_id: id,
             rank: rank,
             title: name,
             attributes: maxAttributes,
-            wipe_time_array: wipeDateTime,
-            most_frequent_wipe: most_frequent_wipe,
-            second_frequent_wipe: second_frequent_wipe,
-            new_record: new_record,
-            force_wipe: force_wipe,
             last_wipe: rust_last_wipe,
+            next_wipe: next_wipe_is_bp ? rust_next_wipe_full : rust_next_wipe,
+            next_wipe_full: rust_next_wipe_full,
+            next_wipe_is_bp: next_wipe_is_bp,
         };
 
         await this.insert_into_db(dataToInsert);
@@ -215,127 +190,49 @@ class IntervalScrapper {
     }
 
     async insert_into_db(data) {
-        const {
-            bm_id,
-            rank,
-            title,
-            attributes,
-            wipe_time_array,
-            most_frequent_wipe,
-            second_frequent_wipe,
-            new_record,
-            force_wipe,
-            last_wipe,
-        } = data;
-
-        let wipe_array = [];
-        let force_wipe_array = [];
-        let primary_wipe_time = [null, null, null];
-        let second_wipe_time = [null, null, null];
-        let force_wipe_time = [null, null];
-
-        if (force_wipe) {
-            force_wipe_time = most_frequent_wipe;
-            force_wipe_array = wipe_time_array;
-        } else {
-            primary_wipe_time = most_frequent_wipe;
-            second_wipe_time = second_frequent_wipe;
-            wipe_array = wipe_time_array;
-        }
-
-        const [primary_day, primary_hour, last_primary] = primary_wipe_time;
-        var { secondary_day, secondary_hour, last_secondary } = second_wipe_time;
-
-        secondary_day = typeof secondary_day === 'number' && !isNaN(secondary_day) ? secondary_day : null;
-        secondary_hour = typeof secondary_hour === 'number' && !isNaN(secondary_hour) ? secondary_hour : null;
-
+        const { bm_id, rank, title, attributes, last_wipe, next_wipe, next_wipe_full, next_wipe_is_bp } = data;
         const { game_mode, wipe_schedule, resource_rate, group_limit } = attributes;
+
+        // Check if the server already exists in the DB
+        const existing_data = await prisma.server_parsed.findUnique({
+            where: { id: parseInt(bm_id, 10) },
+        });
+        const new_record = existing_data ? false : true;
 
         // Use Prisma for DB Operations
         if (new_record) {
-            // Insert into server_data
-            await prisma.server_data.create({
-                data: {
-                    id: parseInt(bm_id, 10),
-                    rank,
-                    title,
-                    region: this.country,
-                    attrs: attributes,
-                    wipes: wipe_array,
-                    force_wipes: force_wipe_array,
-                },
-            });
-
             // Insert into server_parsed
             await prisma.server_parsed.create({
                 data: {
                     id: parseInt(bm_id, 10),
-                    rank,
-                    title,
+                    rank: rank,
+                    title: title,
                     region: typeof attributes.region === String ? attributes.region : 'N/A',
-                    wipe_schedule,
-                    game_mode,
-                    resource_rate,
-                    group_limit,
-                    primary_day,
-                    primary_hour,
-                    last_primary,
-                    secondary_day,
-                    secondary_hour,
-                    last_secondary,
-                    force_hour: force_wipe ? `${force_wipe_time[1]}` : null,
-                    last_force: force_wipe ? force_wipe_array[0] : null,
-                    last_wipe: last_wipe,
-                },
-            });
-        } else if (force_wipe) {
-            // Update server_data and server_parsed for force_wipes
-            await prisma.server_data.update({
-                where: { id: parseInt(bm_id, 10) },
-                data: {
-                    rank,
-                    title,
-                    attrs: attributes,
-                    wipes: wipe_array,
-                    force_wipes: force_wipe_array,
-                },
-            });
-            await prisma.server_parsed.update({
-                where: { id: parseInt(bm_id, 10) },
-                data: {
-                    force_hour: `${force_wipe_time[1]}`,
-                    last_force: force_wipe_array[0],
-                    wipe_schedule,
-                    game_mode,
-                    resource_rate,
-                    group_limit,
-                },
-            });
-        } else {
-            // Update server_data and server_parsed for regular wipes
-            await prisma.server_data.update({
-                where: { id: parseInt(bm_id, 10) },
-                data: {
-                    rank,
-                    title,
-                    attrs: attributes,
-                    wipes: wipe_array,
-                    force_wipes: force_wipe_array,
-                },
-            });
-            await prisma.server_parsed.update({
-                where: { id: parseInt(bm_id, 10) },
-                data: {
-                    primary_day: parseInt(primary_day, 10),
-                    primary_hour: parseInt(primary_hour, 10),
-                    last_primary,
-                    secondary_day: parseInt(secondary_day, 10) || null,
-                    secondary_hour: parseInt(secondary_hour, 10) || null,
-                    last_secondary: last_secondary || null,
-                    wipe_schedule: wipe_schedule || null,
+                    wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
                     game_mode: game_mode || null,
                     resource_rate: resource_rate || null,
                     group_limit: group_limit || null,
+                    last_wipe: last_wipe || null,
+                    next_wipe: next_wipe || null,
+                    next_wipe_full: next_wipe_full || null,
+                    next_wipe_is_bp: next_wipe_is_bp || null,
+                },
+            });
+        } else {
+            await prisma.server_parsed.update({
+                where: { id: parseInt(bm_id, 10) },
+                data: {
+                    rank: rank,
+                    title: title,
+                    region: typeof attributes.region === String ? attributes.region : 'N/A',
+                    wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
+                    game_mode: game_mode || null,
+                    resource_rate: resource_rate || null,
+                    group_limit: group_limit || null,
+                    last_wipe: last_wipe || null,
+                    next_wipe: next_wipe || null,
+                    next_wipe_full: next_wipe_full || null,
+                    next_wipe_is_bp: next_wipe_is_bp || null,
                 },
             });
         }
@@ -525,10 +422,10 @@ class IntervalScrapper {
     }
 
     create_bm_server_list_api_call_string() {
-        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=${this.page_length}&sort=-details.rust_last_wipe`;
-        this.log(`Server List API Call: ${api_call_string}`);
+        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=50`;
+        this.log(`Initial Server List API Call: ${api_call_string}`);
         return api_call_string;
     }
 }
 
-module.exports = IntervalScrapper;
+module.exports = AllServersScrapper;

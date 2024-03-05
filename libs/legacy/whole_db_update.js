@@ -5,7 +5,6 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('./bm_scrapper_attributes');
 const {
     BM_API_BASE_URL,
     BASE_FILTER,
@@ -15,10 +14,11 @@ const {
     PAGE_LEN_FILTER,
     MY_DATE_FORMAT,
     BM_DATE_FORMAT,
-} = require('./bm_scrapper_constants');
-const { fetch_server_list, count_keywords_in_string } = require('./scrapper_generic_helper');
-const { insert_scrapper_stats, output_stats } = require('./scrapper_stats_helper');
-const { create_db_connection } = require('./db_connection_helper');
+} = require('@utils/bm_scrapper_constants');
+const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('@utils/bm_scrapper_attributes');
+const { fetch_api_url, count_keywords_in_string } = require('@helpers/scrapper_generic_helper');
+const { insert_scrapper_stats, output_stats } = require('@helpers/scrapper_stats_helper');
+const { create_db_connection } = require('@helpers/db_connection_helper');
 
 class WholeDBUpdate {
     constructor() {
@@ -80,7 +80,7 @@ class WholeDBUpdate {
 
         while (hasMore && nextPageUrl) {
             this.start_time = moment();
-            const data = await fetch_server_list(nextPageUrl); // Use the full URL directly
+            const data = await fetch_api_url(nextPageUrl); // Use the full URL directly
             if (data && data.data.length > 0) {
                 await this.parse_server_list_data(data);
                 // Extract the next page URL from the response, if available
@@ -142,7 +142,7 @@ class WholeDBUpdate {
             return;
         }
 
-        var { id, ip, port, rank, name, players, maxPlayers, details, rust_description, rust_last_wipe } = attrs;
+        var { id, ip, port, rank, name, players, max_players, details, rust_description, rust_last_wipe } = attrs;
         var rust_next_wipe_map, rust_next_wipe_full, rust_next_wipe_bp, rust_next_wipe, next_wipe_is_bp;
 
         const extra_debug = false;
@@ -188,7 +188,7 @@ class WholeDBUpdate {
         this.log(`-`.repeat(20) + ` Parsed Attrs ` + `-`.repeat(20));
         this.log(`BM ID: ${id} | Name: ${name}`);
         this.log(`IP: ${ip} | Port: ${port}`);
-        this.log(`Rank: ${rank} | Players: ${players}/${maxPlayers}`);
+        this.log(`Rank: ${rank} | Players: ${players}/${max_players}`);
         this.log(`Rust Next Wipe: ${rust_next_wipe ? rust_next_wipe : 'N/A'}`);
         this.log(`Rust Next Wipe Full: ${rust_next_wipe_full ? rust_next_wipe_full : 'N/A'}`);
         this.log(`Next Wipe is BP: ${next_wipe_is_bp}`);

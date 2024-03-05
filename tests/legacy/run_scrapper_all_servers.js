@@ -3,7 +3,7 @@
 require('dotenv').config();
 console.log(`run_single_scrapper DB URL: ${process.env.PS_DATABASE_URL}`);
 
-const AllServersScrapper = require('./scrapper_all_servers.js');
+const AllServersScrapper = require('@libs/scrapper_all_servers.js');
 
 const scrapper = new AllServersScrapper({
     max_days_old: 150,

@@ -6,20 +6,10 @@ const { PrismaClient } = require('@prisma/client');
 console.log(`Scrapper Single DB URL: ${process.env.PS_DATABASE_URL}`);
 const prisma = new PrismaClient();
 
-const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('./bm_scrapper_attributes');
-const {
-    BM_API_BASE_URL,
-    BASE_FILTER,
-    COUNTRY_FILTER,
-    DISTANCE_FILTER,
-    PLAYERS_FILTER,
-    PAGE_LEN_FILTER,
-    MY_DATE_FORMAT,
-    BM_DATE_FORMAT,
-} = require('./bm_scrapper_constants');
-const { fetch_server_list, count_keywords_in_string } = require('./scrapper_generic_helper');
-const { insert_scrapper_stats, output_stats } = require('./scrapper_stats_helper');
-const { create_db_connection } = require('./db_connection_helper');
+const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('@utils/bm_scrapper_attributes');
+const { fetch_api_url, count_keywords_in_string } = require('@helpers/scrapper_generic_helper');
+const { insert_scrapper_stats, output_stats } = require('@helpers/scrapper_stats_helper');
+const { create_db_connection } = require('@helpers/db_connection_helper');
 
 class SingleScrapper {
     constructor() {
@@ -78,7 +68,7 @@ class SingleScrapper {
 
         const api_url = this.create_bm_server_list_api_call_string();
 
-        const data = await fetch_server_list(api_url);
+        const data = await fetch_api_url(api_url);
         if (data) {
             await this.parse_server_list_data(data);
         }
@@ -94,130 +84,6 @@ class SingleScrapper {
         );
         await insert_scrapper_stats(prisma, this.start_time, this.end_time, this.servers_parsed, this.servers_skipped, this.servers_posted);
         await prisma.$disconnect();
-    }
-
-    async parse_server_list_data(response) {
-        if (!response.data) {
-            this.log('Response data not present. Response output (Next Line):');
-            this.log(response);
-            return;
-        }
-
-        this.bufferLogs = true; // Start buffering logs
-
-        const tasks = response.data.map((server) => this.parse_single_server(server));
-        await Promise.all(tasks);
-
-        this.bufferLogs = false; // Stop buffering logs
-        this.flushLogs(); // Flush the buffered logs
-    }
-
-    async parse_single_server(server) {
-        this.servers_parsed++;
-        const attrs = server.attributes;
-        if (!attrs) {
-            this.servers_skipped++;
-            return;
-        }
-
-        var { id, ip, port, rank, name, players, maxPlayers, details, rust_description, rust_last_wipe } = attrs;
-        var rust_next_wipe_map, rust_next_wipe_full, rust_next_wipe_bp, rust_next_wipe, next_wipe_is_bp;
-
-        const extra_debug = false;
-        if (extra_debug) {
-            this.log(`*`.repeat(140));
-            this.log(`*`.repeat(20) + ` Attributes for Server ${id} ${name} ` + `-`.repeat(20));
-            this.log(`Server ${id} ${name} Full Attributes (Next Line):`);
-            for (const [key, value] of Object.entries(attrs)) {
-                this.log(`${key}: ${value}`);
-            }
-
-            this.log(`-`.repeat(20) + ` Details ` + `-`.repeat(20));
-            for (const [key, value] of Object.entries(details)) {
-                this.log(`${key}: ${value}`);
-            }
-        }
-
-        rust_description = details ? details.rust_description : '';
-        rust_last_wipe = details ? details.rust_last_wipe : null;
-        rust_next_wipe = details ? details.rust_last_wipe : null;
-        rust_next_wipe_map = details ? details.rust_next_wipe_map : null;
-        rust_next_wipe_full = details ? details.rust_next_wipe_full : null;
-        rust_next_wipe_bp = details ? details.rust_next_wipe_bp : null;
-
-        rust_next_wipe = rust_next_wipe_map ? rust_next_wipe_map : rust_next_wipe;
-        rust_next_wipe = rust_next_wipe ? moment(new Date(rust_next_wipe)).format(BM_DATE_FORMAT) : null;
-        rust_next_wipe_full = rust_next_wipe_bp ? rust_next_wipe_bp : rust_next_wipe_full;
-        rust_next_wipe_full = rust_next_wipe_full ? moment(new Date(rust_next_wipe_full)).format(BM_DATE_FORMAT) : null;
-
-        // check if next wipe is force wipe by comparing which date from rust_next_wipe or rust_next_wipe_full is closer to current date
-        next_wipe_is_bp = false;
-        if (rust_next_wipe && rust_next_wipe_full) {
-            const next_wipe_moment = moment(new Date(rust_next_wipe));
-            const next_wipe_full_moment = moment(new Date(rust_next_wipe_full));
-            const current_moment = moment();
-
-            const next_wipe_diff = Math.abs(next_wipe_moment.diff(current_moment));
-            const next_wipe_full_diff = Math.abs(next_wipe_full_moment.diff(current_moment));
-
-            next_wipe_is_bp = next_wipe_diff > next_wipe_full_diff;
-        }
-
-        this.log(`-`.repeat(20) + ` Parsed Attrs ` + `-`.repeat(20));
-        this.log(`BM ID: ${id} | Name: ${name}`);
-        this.log(`IP: ${ip} | Port: ${port}`);
-        this.log(`Rank: ${rank} | Players: ${players}/${maxPlayers}`);
-        this.log(`Rust Next Wipe: ${rust_next_wipe ? rust_next_wipe : 'N/A'}`);
-        this.log(`Rust Next Wipe Full: ${rust_next_wipe_full ? rust_next_wipe_full : 'N/A'}`);
-        this.log(`Next Wipe is BP: ${next_wipe_is_bp}`);
-
-        // Server exclusion logic
-        // Rank of server greater than set min rank
-        if (rank > this.min_rank) {
-            this.log(`Not saving servers with rank > ${this.min_rank} in DB. Skipping ${name}. Amount skipped:', this.servers_skipped`);
-            this.servers_skipped++;
-            return;
-        }
-
-        // console.log('Rust Description:\n', rust_description);
-
-        const serverAttributes = this.parse_server_attributes(name, rust_description);
-        //console.log('Server Attributes:\n', serverAttributes);
-
-        const maxAttributes = this.parse_grouped_attributes_for_max(serverAttributes);
-        //console.log('Max Attributes:\n', maxAttributes);
-
-        var next_wipe_hour = '-1';
-        var next_wipe_dow = '-1';
-        var next_wipe_week = '-1';
-        if (rust_next_wipe !== null) {
-            next_wipe_hour = moment(rust_next_wipe).format('H'); // 0-23
-            next_wipe_dow = moment(rust_next_wipe).format('d'); // 0 = Sunday, 6 = Saturday
-            next_wipe_week = moment(rust_next_wipe).format('W'); // 1-52
-        }
-
-        const dataToInsert = {
-            bm_id: id,
-            rank: rank,
-            ip: `${ip}:${port}`,
-            title: name,
-            region: this.country,
-            players: players,
-            attributes: maxAttributes,
-            last_wipe: rust_last_wipe,
-            next_wipe: next_wipe_is_bp ? rust_next_wipe_full : rust_next_wipe,
-            next_wipe_full: rust_next_wipe_full,
-            next_wipe_is_bp: next_wipe_is_bp,
-            next_wipe_hour: next_wipe_hour,
-            next_wipe_dow: next_wipe_dow,
-            next_wipe_week: next_wipe_week,
-        };
-
-        // pull current data for BM ID and if data from current data is better than new data, only update fields that are better
-        const final_data_to_insert = await this.search_for_existing_and_combine(id, dataToInsert);
-
-        await this.insert_into_db(final_data_to_insert);
-        this.servers_posted++;
     }
 
     async insert_into_db(data) {
@@ -419,12 +285,6 @@ class SingleScrapper {
 
         if (logOut) this.log(`WIPE DICT (NEXT LINE): \n${JSON.stringify(wipeDict)}`);
         return wipeDict;
-    }
-
-    create_bm_server_list_api_call_string() {
-        const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${this.country}&${DISTANCE_FILTER}=${this.distance}&${PLAYERS_FILTER}=${this.min_players}&${PAGE_LEN_FILTER}=${this.page_length}&sort=-details.rust_last_wipe`;
-        this.log(`Server List API Call: ${api_call_string}`);
-        return api_call_string;
     }
 }
 

@@ -1,4 +1,4 @@
-const IntervalScrapper = require('./scrapper_interval.js');
+const IntervalScrapper = require('@libs/scrapper_interval.js');
 
 const scrapper = new IntervalScrapper({
     max_days_old: 150,

@@ -10,12 +10,20 @@
     },
     "dependencies": {
         "@prisma/client": "^5.9.1",
+        "axios": "^1.6.7",
         "dotenv": "^16.4.3",
+        "module-alias": "^2.2.3",
         "moment": "^2.30.1",
-        "axios": "^1.6.7"
+        "yargs": "^17.7.2"
     },
     "devDependencies": {
         "@types/node": "20.11.17",
         "eslint": "8.56.0"
+    },
+    "_moduleAliases": {
+        "@libs": "./libs",
+        "@tests": "./tests",
+        "@utils": "./utils",
+        "@helpers": "./helpers"
     }
 }

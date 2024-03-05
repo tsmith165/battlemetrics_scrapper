@@ -10,23 +10,39 @@ datasource db {
 }
 
 model server_parsed {
-  id              Int      @id // Battle Metrics ID
-  rank            Int          // Battle Metrics Rank
-  ip              String?      // Server IP
-  title           String       // Server Title
-  region          String       // Server Region - NA / SA / EU / OCE / ASIA / AFRICA
-  players         Int?         // Number of players
-  wipe_schedule   String?      // Wipe Schedule - Weekly / Bi-Weekly / Monthly (HAVENT YET IMPLEMENTED SCRAPING THIS DATA)
-  game_mode       String?      // PvP/PvE/Arena/Build
-  resource_rate   String?      // 1x/1.5x/2x/3x/4x/5x/10x/20x/50x/etc
-  group_limit     String?      // solo / duo / trio / quad / no limit
-  last_wipe       String?      // Last Wipe Timestamp
-  next_wipe       String?      // Next Wipe Timestamp
-  next_wipe_full  String?      // Next Full Wipe Timestamp
-  next_wipe_is_bp String?      // Next Wipe is Blueprint Wipe
-  next_wipe_hour  Int?         // Hour for next wipe (0-23)
-  next_wipe_dow   Int?         // Day of week for next wipe (0-6)
-  next_wipe_week  Int?         // Week of year for next wipe (1-52)
+  id              Int  @id // Battle Metrics ID
+  rank            Int      // Battle Metrics Rank
+  ip              String?  // Server IP
+  title           String   // Server Title
+  region          String   // Server Region - NA / SA / EU / OCE / ASIA / AFRICA
+  players         Int?     // Number of players
+  wipe_schedule   String?  // Wipe Schedule - Weekly / Bi-Weekly / Monthly (HAVENT YET IMPLEMENTED SCRAPING THIS DATA)
+  game_mode       String?  // PvP/PvE/Arena/Build
+  resource_rate   String?  // 1x/1.5x/2x/3x/4x/5x/10x/20x/50x/etc
+  group_limit     String?  // solo / duo / trio / quad / no limit
+  last_wipe       String?  // Last Wipe Timestamp
+  last_bp_wipe    String?  // Last Blueprint Wipe Timestamp
+  next_wipe       String?  // Next Wipe Timestamp
+  next_wipe_full  String?  // Next Full Wipe Timestamp
+  next_wipe_is_bp String?  // Next Wipe is Blueprint Wipe
+  next_wipe_hour  Int?     // Hour for next wipe (0-23)
+  next_wipe_dow   Int?     // Day of week for next wipe (0-6)
+  next_wipe_week  Int?     // Week of year for next wipe (1-52)
+  main_wipe_hour  Int?     // Hour for primary wipe (0-23)
+  main_wipe_dow   Int?     // Day of week for primary wipe (0-6)
+  sec_wipe_hour   Int?     // Hour for primary wipe (0-23)
+  sec_wipe_dow    Int?     // Day of week for secondary wipe (0-6)
+  bp_wipe_hour    Int?     // Hour for blueprint wipe (0-23)
+  bp_wipe_dow     Int?     // Day of week for blueprint wipe (0-6)
+}
+
+model wipes {
+  id          Int  @id // Battle Metrics ID
+  wipe_time   String   // Wipe Time
+  is_bp       String   // Is Blueprint Wipe
+  title       String?  // Server Title
+  description String? @db.Text  // Wipe Description
+  attributes  Json? // Wipe Attributes
 }
 
 model scrapper_stats {

@@ -3,7 +3,7 @@
 require('dotenv').config();
 console.log(`run_single_scrapper DB URL: ${process.env.PS_DATABASE_URL}`);
 
-const WholeDBUpdate = require('./whole_db_update.js');
+const WholeDBUpdate = require('@libs/whole_db_update.js');
 
 const whole_db_updater = new WholeDBUpdate({});
 
