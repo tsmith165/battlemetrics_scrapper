@@ -178,6 +178,12 @@ async function insert_into_db(prisma, data) {
         next_wipe_hour,
         next_wipe_dow,
         next_wipe_week,
+        main_wipe_hour,
+        main_wipe_dow,
+        sec_wipe_hour,
+        sec_wipe_dow,
+        bp_wipe_hour,
+        bp_wipe_dow,
     } = data;
     const { game_mode, wipe_schedule, resource_rate, group_limit } = attributes;
 
@@ -186,6 +192,8 @@ async function insert_into_db(prisma, data) {
         where: { id: parseInt(bm_id, 10) },
     });
     const new_record = existing_data ? false : true;
+
+    console.log('Inserting data into DB with ');
 
     // Use Prisma for DB Operations
     if (new_record) {
@@ -209,6 +217,12 @@ async function insert_into_db(prisma, data) {
                 next_wipe_hour: parseInt(next_wipe_hour) || null,
                 next_wipe_dow: parseInt(next_wipe_dow) || null,
                 next_wipe_week: parseInt(next_wipe_week) || null,
+                main_wipe_hour: parseInt(main_wipe_hour) || null,
+                main_wipe_dow: parseInt(main_wipe_dow) || null,
+                sec_wipe_hour: parseInt(sec_wipe_hour) || null,
+                sec_wipe_dow: parseInt(sec_wipe_dow) || null,
+                bp_wipe_hour: parseInt(bp_wipe_hour) || null,
+                bp_wipe_dow: parseInt(bp_wipe_dow) || null,
             },
         });
     } else {
@@ -230,6 +244,12 @@ async function insert_into_db(prisma, data) {
                 next_wipe_hour: parseInt(next_wipe_hour) || null,
                 next_wipe_dow: parseInt(next_wipe_dow) || null,
                 next_wipe_week: parseInt(next_wipe_week) || null,
+                main_wipe_hour: parseInt(main_wipe_hour) || null,
+                main_wipe_dow: parseInt(main_wipe_dow) || null,
+                sec_wipe_hour: parseInt(sec_wipe_hour) || null,
+                sec_wipe_dow: parseInt(sec_wipe_dow) || null,
+                bp_wipe_hour: parseInt(bp_wipe_hour) || null,
+                bp_wipe_dow: parseInt(bp_wipe_dow) || null,
             },
         });
     }

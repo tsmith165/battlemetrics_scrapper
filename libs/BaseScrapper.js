@@ -1,6 +1,6 @@
 // /libs/BaseScrapper.js
 require('module-alias/register');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 const { BM_DATE_FORMAT } = require('@utils/bm_scrapper_constants');
 const { create_db_connection } = require('@helpers/db_connection_helper');
@@ -115,16 +115,18 @@ class BaseScrapper {
         rust_next_wipe_bp = details ? details.rust_next_wipe_bp : null;
 
         rust_next_wipe = rust_next_wipe_map ? rust_next_wipe_map : rust_next_wipe;
-        rust_next_wipe = rust_next_wipe ? moment(new Date(rust_next_wipe)).format(BM_DATE_FORMAT) : null;
         rust_next_wipe_full = rust_next_wipe_bp ? rust_next_wipe_bp : rust_next_wipe_full;
-        rust_next_wipe_full = rust_next_wipe_full ? moment(new Date(rust_next_wipe_full)).format(BM_DATE_FORMAT) : null;
+        rust_next_wipe = rust_next_wipe ? moment.utc(new Date(rust_next_wipe)).tz('America/Los_Angeles').format(BM_DATE_FORMAT) : null;
+        rust_next_wipe_full = rust_next_wipe_full
+            ? moment.utc(new Date(rust_next_wipe_full)).tz('America/Los_Angeles').format(BM_DATE_FORMAT)
+            : null;
 
         // check if next wipe is force wipe by comparing which date from rust_next_wipe or rust_next_wipe_full is closer to current date
         next_wipe_is_bp = false;
         if (rust_next_wipe && rust_next_wipe_full) {
             const next_wipe_moment = moment(new Date(rust_next_wipe));
             const next_wipe_full_moment = moment(new Date(rust_next_wipe_full));
-            const current_moment = moment();
+            const current_moment = moment().tz('America/Los_Angeles');
 
             const next_wipe_diff = Math.abs(next_wipe_moment.diff(current_moment));
             const next_wipe_full_diff = Math.abs(next_wipe_full_moment.diff(current_moment));
@@ -200,16 +202,16 @@ class BaseScrapper {
         // for most frequent wipe date / second most frequent wipe date / most frequent bp wipe date, use moment.js to get the rounded hour of the day, and the day of the week
         var main_wipe_hour, main_wipe_dow, sec_wipe_hour, sec_wipe_dow, bp_wipe_hour, bp_wipe_dow;
 
-        if (wipe_times.length > 1) {
-            normal_wipe_dates_count = {};
-            bp_wipe_dates_count = {};
+        if (wipe_times.length > 0) {
+            var normal_wipe_dates_count = {};
+            var bp_wipe_dates_count = {};
             for (const wipe_time of wipe_times) {
-                wipe_moment = moment(wipe_time);
+                let wipe_moment = moment.utc(wipe_time).tz('America/Los_Angeles');
                 // check if first thursday of the month
-                if (wipe_moment.date() <= 7 && wipe_moment.day() === 4) {
-                    normal_wipe_dates_count[wipe_time] = (normal_wipe_dates_count[wipe_time] || 0) + 1;
-                } else {
+                if (wipe_moment.date() <= 7 && wipe_moment.day() === 4 && wipe_moment.hour() > 10) {
                     bp_wipe_dates_count[wipe_time] = (bp_wipe_dates_count[wipe_time] || 0) + 1;
+                } else {
+                    normal_wipe_dates_count[wipe_time] = (normal_wipe_dates_count[wipe_time] || 0) + 1;
                 }
             }
             console.log('Normal Wipe Dates Count:', normal_wipe_dates_count);
@@ -220,24 +222,35 @@ class BaseScrapper {
             let sorted_normal_wipes = Object.entries(normal_wipe_dates_count).sort((a, b) => b[1] - a[1]);
             let sorted_bp_wipes = Object.entries(bp_wipe_dates_count).sort((a, b) => b[1] - a[1]);
 
-            let main_wipe_date = sorted_normal_wipes[0][0];
-            let sec_wipe_date = sorted_normal_wipes[1][0];
-            let bp_wipe_date = sorted_bp_wipes[0][0];
+            console.log('Sorted Normal Wipes:', sorted_normal_wipes);
+            console.log('Sorted BP Wipes:', sorted_bp_wipes);
 
-            if (main_wipe_date) {
-                let main_moment = moment(main_wipe_date);
-                main_wipe_hour = main_moment.format('H');
-                main_wipe_dow = main_moment.format('d');
+            if (sorted_normal_wipes.length > 0) {
+                let main_wipe_date = sorted_normal_wipes[0][0];
+                if (main_wipe_date) {
+                    let main_moment = moment.utc(main_wipe_date).tz('America/Los_Angeles');
+                    main_wipe_hour = main_moment.format('H');
+                    main_wipe_dow = main_moment.format('d');
+                }
+
+                if (sorted_normal_wipes.length > 1) {
+                    let sec_wipe_date = sorted_normal_wipes[1][0];
+                    if (sec_wipe_date) {
+                        let sec_moment = moment.utc(sec_wipe_date).tz('America/Los_Angeles');
+                        sec_wipe_hour = sec_moment.format('H');
+                        sec_wipe_dow = sec_moment.format('d');
+                    }
+                }
             }
-            if (sec_wipe_date) {
-                let sec_moment = moment(sec_wipe_date);
-                sec_wipe_hour = sec_moment.format('H');
-                sec_wipe_dow = sec_moment.format('d');
-            }
-            if (bp_wipe_date) {
-                let bp_moment = moment(bp_wipe_date);
-                bp_wipe_hour = bp_moment.format('H');
-                bp_wipe_dow = bp_moment.format('d');
+
+            if (sorted_bp_wipes.length > 0) {
+                let bp_wipe_date = sorted_bp_wipes[0][0];
+
+                if (bp_wipe_date) {
+                    let bp_moment = moment.utc(bp_wipe_date).tz('America/Los_Angeles');
+                    bp_wipe_hour = bp_moment.format('H');
+                    bp_wipe_dow = bp_moment.format('d');
+                }
             }
         }
 
@@ -254,10 +267,14 @@ class BaseScrapper {
         var next_wipe_dow = '-1';
         var next_wipe_week = '-1';
         if (rust_next_wipe !== null) {
-            next_wipe_hour = moment(rust_next_wipe).format('H'); // 0-23
-            next_wipe_dow = moment(rust_next_wipe).format('d'); // 0 = Sunday, 6 = Saturday
-            next_wipe_week = moment(rust_next_wipe).format('W'); // 1-52
+            let pstMoment = moment.utc(rust_next_wipe).tz('America/Los_Angeles');
+            next_wipe_hour = pstMoment.format('H'); // 0-23
+            next_wipe_dow = pstMoment.format('d'); // 0 = Sunday, 6 = Saturday
+            next_wipe_week = pstMoment.format('W'); // 1-52
         }
+
+        console.log(`Using main wipe hour ${main_wipe_hour} - dow ${main_wipe_dow}`);
+        console.log(`Using secondary wipe hour ${sec_wipe_hour} - dow ${sec_wipe_dow}`);
 
         const dataToInsert = {
             bm_id: parseInt(id),
