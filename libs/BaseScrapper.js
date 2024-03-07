@@ -191,6 +191,10 @@ class BaseScrapper {
             },
         });
 
+        // append current wipe_time to wipe_times
+        wipe_times.push(rust_last_wipe);
+        console.log('Finding main/secondary wipes for found wipe times: ', wipe_times);
+
         // if wipe_times.length > 1, loop through and find the most frequest wipe date, second most frequent wipe date, and most frequent bp wipe date
         // BP wipe date = first thursday of each month
         // for most frequent wipe date / second most frequent wipe date / most frequent bp wipe date, use moment.js to get the rounded hour of the day, and the day of the week
