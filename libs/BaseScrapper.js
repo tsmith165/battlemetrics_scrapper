@@ -222,9 +222,6 @@ class BaseScrapper {
             let sorted_normal_wipes = Object.entries(normal_wipe_dates_count).sort((a, b) => b[1] - a[1]);
             let sorted_bp_wipes = Object.entries(bp_wipe_dates_count).sort((a, b) => b[1] - a[1]);
 
-            console.log('Sorted Normal Wipes:', sorted_normal_wipes);
-            console.log('Sorted BP Wipes:', sorted_bp_wipes);
-
             if (sorted_normal_wipes.length > 0) {
                 let main_wipe_date = sorted_normal_wipes[0][0];
                 if (main_wipe_date) {
@@ -272,9 +269,6 @@ class BaseScrapper {
             next_wipe_dow = pstMoment.format('d'); // 0 = Sunday, 6 = Saturday
             next_wipe_week = pstMoment.format('W'); // 1-52
         }
-
-        console.log(`Using main wipe hour ${main_wipe_hour} - dow ${main_wipe_dow}`);
-        console.log(`Using secondary wipe hour ${sec_wipe_hour} - dow ${sec_wipe_dow}`);
 
         const dataToInsert = {
             bm_id: parseInt(id),

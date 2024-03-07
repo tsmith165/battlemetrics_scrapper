@@ -193,8 +193,6 @@ async function insert_into_db(prisma, data) {
     });
     const new_record = existing_data ? false : true;
 
-    console.log('Inserting data into DB with ');
-
     // Use Prisma for DB Operations
     if (new_record) {
         // Insert into server_parsed
