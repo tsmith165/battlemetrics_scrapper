@@ -6,11 +6,10 @@ const PLAYERS_FILTER = 'filter[players][min]';
 const PAGE_LEN_FILTER = 'page[size]';
 const PAGE_KEY_FILTER = 'page[key]';
 const WIPE_FILTER = 'sort=-details.rust_last_wipe';
-
 const MY_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
 const BM_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
 
-const REGION_MAP = {
+const REGION_MAP: { [key: string]: string } = {
     US: 'North America',
     BO: 'South America',
     DE: 'Europe',
@@ -19,7 +18,7 @@ const REGION_MAP = {
     AU: 'Australia',
 };
 
-module.exports = {
+export {
     BM_API_BASE_URL,
     BASE_FILTER,
     COUNTRY_FILTER,

@@ -1,13 +1,34 @@
-const { PrismaClient } = require('@prisma/client');
-const moment = require('moment-timezone');
+// /tests/run_wipe_parser.ts
+import { PrismaClient } from '@prisma/client';
+import moment from 'moment-timezone';
 
 const prisma = new PrismaClient();
 
-async function updateServerWipeTimes(bm_id, wipe_times) {
+interface UpdateData {
+    main_wipe_hour?: number;
+    main_wipe_dow?: number;
+    sec_wipe_hour?: number;
+    sec_wipe_dow?: number;
+    bp_wipe_hour?: number;
+    bp_wipe_dow?: number;
+}
+
+interface Wipe_History {
+    id: number;
+    bm_id: number;
+    timestamp: Date;
+    wipe_time: string;
+    is_bp: string;
+    title: string | null;
+    description: string | null;
+    attributes: any | null;
+}
+
+async function updateServerWipeTimes(bm_id: number, wipe_times: string[]): Promise<void> {
     if (wipe_times.length === 0) return;
 
-    const normal_wipe_dates_count = {};
-    const bp_wipe_dates_count = {};
+    const normal_wipe_dates_count: { [key: string]: number } = {};
+    const bp_wipe_dates_count: { [key: string]: number } = {};
 
     for (const wipe_time of wipe_times) {
         const wipe_moment = moment.utc(wipe_time).tz('America/Los_Angeles');
@@ -26,7 +47,7 @@ async function updateServerWipeTimes(bm_id, wipe_times) {
     console.log(`Sorted normal wipes:`, sorted_normal_wipes);
     console.log(`Sorted bp wipes:`, sorted_bp_wipes);
 
-    const updateData = {};
+    const updateData: UpdateData = {};
 
     if (sorted_normal_wipes.length > 0) {
         const main_wipe_date = sorted_normal_wipes[0][0];
@@ -63,7 +84,7 @@ async function updateServerWipeTimes(bm_id, wipe_times) {
     });
 }
 
-async function main() {
+async function main(): Promise<void> {
     // 1. Capture array of `id` values from the `parsed_server` table
     const serverIds = await prisma.parsed_server.findMany({ select: { id: true } });
 
@@ -78,7 +99,7 @@ async function main() {
             select: { wipe_time: true },
         });
 
-        const wipeTimesArray = wipeTimes.map((wipeTime) => wipeTime.wipe_time);
+        const wipeTimesArray = wipeTimes.map((wipeTime: Wipe_History) => wipeTime.wipe_time);
         console.log(`Wipe times:`, wipeTimesArray);
 
         // 4. Parse the wipe times for the `bm_id` to find the main_wipe_hour / main_wipe_dow,

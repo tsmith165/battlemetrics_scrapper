@@ -1,78 +1,84 @@
-const axios = require('axios');
+// /helpers/scrapper_generic_helper.ts
+import axios, { AxiosResponse } from 'axios';
+import db from '../db/drizzle.js';
+import { parsed_server } from '../db/schema.js';
+import { eq } from 'drizzle-orm';
 
-const {
+import {
     BM_API_BASE_URL,
     BASE_FILTER,
     COUNTRY_FILTER,
     DISTANCE_FILTER,
     PLAYERS_FILTER,
     PAGE_LEN_FILTER,
-} = require('@utils/bm_scrapper_constants');
-const { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } = require('@utils/bm_scrapper_attributes');
+} from '../utils/bm_scrapper_constants.js';
+import { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } from '../utils/bm_scrapper_attributes.js';
 
-async function fetch_api_url(api_url) {
-    console.log(`Fetching server list from API with URL: ${api_url}`);
+async function fetch_api_url(api_url: string): Promise<any> {
     try {
-        const response = await axios.get(api_url);
+        const response: AxiosResponse = await axios.get(api_url);
+        console.log('API call successful. Returning data.');
         return response.data;
     } catch (error) {
-        console.error('API call failed: ', error);
+        console.error('API call failed:', error);
+        if (axios.isAxiosError(error)) {
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                console.error('Response status:', error.response.status);
+                console.error('Response data:', error.response.data);
+            } else if (error.request) {
+                // The request was made but no response was received
+                console.error('No response received:', error.request);
+            } else {
+                // Something happened in setting up the request that triggered an Error
+                console.error('Error message:', error.message);
+            }
+        } else {
+            // Some other type of error occurred
+            console.error('Unknown error:', error);
+        }
         return null;
     }
 }
 
-function count_keywords_in_string(keywords, string) {
-    //console.log(`Counting keywords: ${keywords} in string: ${string}`);
-
-    // Convert the string to lowercase so that the search is case-insensitive
+function count_keywords_in_string(keywords: string[], string: string): number {
     const lowerCaseString = string.toLowerCase();
 
     return keywords.reduce((count, keyword) => {
-        // Also convert the keyword to lowercase
         const lowerCaseKeyword = keyword.toLowerCase();
-
-        // Splitting the string by the keyword and subtracting 1 gives the count of this keyword
-        // This is because splitting by a delimiter will result in an array larger by one than the number of delimiters
         return count + (lowerCaseString.split(lowerCaseKeyword).length - 1);
     }, 0);
 }
 
-function create_bm_server_list_api_call_string(country, distance, min_players, page_length) {
+function create_bm_server_list_api_call_string(country: string, distance: number, min_players: number, page_length: number): string {
     const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${country}&${DISTANCE_FILTER}=${distance}&${PLAYERS_FILTER}=${min_players}&${PAGE_LEN_FILTER}=${page_length}&sort=-details.rust_last_wipe`;
     console.log(`Server List API Call: ${api_call_string}`);
     return api_call_string;
 }
 
-function parse_server_attributes(title, description) {
-    if (title === null || title === undefined) {
-        title = '';
-    }
-    if (description === null || description === undefined) {
-        description = '';
-    }
-    title = title.toLowerCase();
-    description = description.toLowerCase();
+function parse_server_attributes(
+    title: string | null | undefined,
+    description: string | null | undefined
+): { [key: string]: { [key: string]: number } } {
+    title = title ? title.toLowerCase() : '';
+    description = description ? description.toLowerCase() : '';
 
-    var server_attributes = {};
+    const server_attributes: { [key: string]: { [key: string]: number } } = {};
+
     for (const [groupKey, attributeKeys] of Object.entries(ATTRIBUTE_GROUPS)) {
         server_attributes[groupKey] = {};
 
-        attributeKeys.forEach((attribute) => {
+        (attributeKeys as string[]).forEach((attribute: string) => {
             const keywords = ATTRIBUTE_KEYWORDS[attribute];
-            const count = count_keywords_in_string(keywords, title) + count_keywords_in_string(keywords, description);
+            const count = count_keywords_in_string(keywords, title || '') + count_keywords_in_string(keywords, description || '');
             if (count > 0) {
-                if (server_attributes[groupKey][attribute] === undefined) {
-                    server_attributes[groupKey][attribute] = parseInt(count);
-                } else {
-                    server_attributes[groupKey][attribute] += parseInt(count);
-                }
+                server_attributes[groupKey][attribute] = (server_attributes[groupKey][attribute] || 0) + count;
             }
         });
 
         if (groupKey === 'group_limit' && Object.keys(server_attributes[groupKey]).length === 0) {
             console.log('Checking for group limit with alternative method as it wasnt found with keywords');
-            group_limit_key = 'no limit';
-            // loop lines of description, convert line to lower case, and search for "group limit".  If exists, scan line for integer value and set group_limit to that value
+            let group_limit_key = 'no limit';
             const lines = description.split('\n');
             for (const line of lines) {
                 if (line.includes('group limit') || line.includes('group size') || line.includes('limit')) {
@@ -91,11 +97,7 @@ function parse_server_attributes(title, description) {
                 }
             }
 
-            if (server_attributes[groupKey][group_limit_key] === undefined) {
-                server_attributes[groupKey][group_limit_key] = parseInt(1);
-            } else {
-                server_attributes[groupKey][group_limit_key] += parseInt(1);
-            }
+            server_attributes[groupKey][group_limit_key] = (server_attributes[groupKey][group_limit_key] || 0) + 1;
         }
         if (groupKey === 'resource_rate' && Object.keys(server_attributes[groupKey]).length === 0) {
             server_attributes[groupKey]['1x'] = 1;
@@ -107,16 +109,18 @@ function parse_server_attributes(title, description) {
     return server_attributes;
 }
 
-function parse_grouped_attributes_for_max(server_attributes) {
-    const max_attributes = {};
-    const server_attribute_stats = {};
+function parse_grouped_attributes_for_max(server_attributes: {
+    [key: string]: { [key: string]: number };
+}): [{ [key: string]: string }, { [key: string]: number }] {
+    const max_attributes: { [key: string]: string } = {};
+    const server_attribute_stats: { [key: string]: number } = {};
 
     for (const [groupKey, attributes] of Object.entries(server_attributes)) {
         if (Object.keys(attributes).length === 0) {
             continue;
         }
 
-        max_attributes[groupKey] = {};
+        max_attributes[groupKey] = '';
 
         if (groupKey === 'group_limit') {
             for (const groupLimit of ['no limit', 'quad', 'trio', 'duo', 'solo']) {
@@ -129,7 +133,6 @@ function parse_grouped_attributes_for_max(server_attributes) {
             continue;
         }
 
-        // Max attributes for other groups
         max_attributes[groupKey] = Object.keys(attributes).reduce((a, b) => (attributes[a] > attributes[b] ? a : b));
         server_attribute_stats[max_attributes[groupKey]] = (server_attribute_stats[max_attributes[groupKey]] || 0) + 1;
     }
@@ -137,32 +140,41 @@ function parse_grouped_attributes_for_max(server_attributes) {
     return [max_attributes, server_attribute_stats];
 }
 
-async function search_for_existing_and_combine(prisma, bm_id, data_to_compare) {
-    const existing_data = await prisma.parsed_server.findUnique({
-        where: { id: parseInt(bm_id, 10) },
-    });
+async function search_for_existing_and_combine(bm_id: string, data_to_compare: any): Promise<any> {
+    try {
+        // console.log('Searching for existing data for BM ID:', bm_id);
+        const existing_data = await db
+            .select()
+            .from(parsed_server)
+            .where(eq(parsed_server.id, parseInt(bm_id, 10)))
+            .execute();
 
-    if (!existing_data) {
-        console.log(`No existing BM ID ${bm_id} records found - inserting new record.`);
-        return data_to_compare;
-    }
+        // console.log('Existing Data:', existing_data);
 
-    // loop the data_to_compare and combine existing data with new data.  If fields are missing in new data, use existing data fields
-    const combined_data = {};
-
-    console.log(`Found existing BM ID ${bm_id} records - combining existing and new data.`);
-    for (const [key, value] of Object.entries(data_to_compare)) {
-        if (value === null || value === undefined || value === '' || value === 'N/A' || value === 'null') {
-            combined_data[key] = existing_data[key];
-        } else {
-            combined_data[key] = value;
+        if (!existing_data) {
+            console.log(`No existing BM ID ${bm_id} records found - inserting new record.`);
+            return data_to_compare;
         }
-    }
 
-    return combined_data;
+        const combined_data: { [key: string]: any } = {};
+
+        // console.log(`Found existing BM ID ${bm_id} records - combining existing and new data.`);
+        for (const [key, value] of Object.entries(data_to_compare)) {
+            if (value === null || value === undefined || value === '' || value === 'N/A' || value === 'null') {
+                combined_data[key] = (existing_data as { [key: string]: any })[key];
+            } else {
+                combined_data[key] = value;
+            }
+        }
+
+        return combined_data;
+    } catch (error) {
+        console.error('Error searching for existing data:', error);
+        throw error;
+    }
 }
 
-async function insert_into_db(prisma, data) {
+async function insert_into_db(data: any): Promise<void> {
     const {
         bm_id,
         rank,
@@ -187,51 +199,24 @@ async function insert_into_db(prisma, data) {
     } = data;
     const { game_mode, wipe_schedule, resource_rate, group_limit } = attributes;
 
-    // Check if the server already exists in the DB
-    const existing_data = await prisma.parsed_server.findUnique({
-        where: { id: parseInt(bm_id, 10) },
-    });
-    const new_record = existing_data ? false : true;
+    const existing_data = await db
+        .select()
+        .from(parsed_server)
+        .where(eq(parsed_server.id, parseInt(bm_id, 10)))
+        .execute();
+    const new_record = !existing_data;
 
-    // Use Prisma for DB Operations
     if (new_record) {
-        // Insert into server_parsed
-        await prisma.parsed_server.create({
-            data: {
+        await db
+            .insert(parsed_server)
+            .values({
                 id: parseInt(bm_id, 10),
                 rank: rank,
                 ip: ip,
                 title: title,
-                region: typeof region === String ? region : 'US',
+                region: typeof region === 'string' ? region : 'US',
                 players: players,
-                wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
-                game_mode: game_mode || null,
-                resource_rate: resource_rate || null,
-                group_limit: group_limit || null,
-                last_wipe: last_wipe || null,
-                next_wipe: next_wipe || null,
-                next_wipe_full: next_wipe_full || null,
-                next_wipe_is_bp: String(next_wipe_is_bp) || null, // convert to string
-                next_wipe_hour: parseInt(next_wipe_hour) || null,
-                next_wipe_dow: parseInt(next_wipe_dow) || null,
-                next_wipe_week: parseInt(next_wipe_week) || null,
-                main_wipe_hour: parseInt(main_wipe_hour) || null,
-                main_wipe_dow: parseInt(main_wipe_dow) || null,
-                sec_wipe_hour: parseInt(sec_wipe_hour) || null,
-                sec_wipe_dow: parseInt(sec_wipe_dow) || null,
-                bp_wipe_hour: parseInt(bp_wipe_hour) || null,
-                bp_wipe_dow: parseInt(bp_wipe_dow) || null,
-            },
-        });
-    } else {
-        await prisma.parsed_server.update({
-            where: { id: parseInt(bm_id, 10) },
-            data: {
-                rank: rank,
-                title: title,
-                region: typeof attributes.region === String ? attributes.region : 'US',
-                players: players,
-                wipe_schedule: 'N/A', // Havent re-implemented wipe_schedule parsing yet
+                wipe_schedule: 'N/A',
                 game_mode: game_mode || null,
                 resource_rate: resource_rate || null,
                 group_limit: group_limit || null,
@@ -248,12 +233,40 @@ async function insert_into_db(prisma, data) {
                 sec_wipe_dow: parseInt(sec_wipe_dow) || null,
                 bp_wipe_hour: parseInt(bp_wipe_hour) || null,
                 bp_wipe_dow: parseInt(bp_wipe_dow) || null,
-            },
-        });
+            })
+            .execute();
+    } else {
+        await db
+            .update(parsed_server)
+            .set({
+                rank: rank,
+                title: title,
+                region: typeof attributes.region === 'string' ? attributes.region : 'US',
+                players: players,
+                wipe_schedule: 'N/A',
+                game_mode: game_mode || null,
+                resource_rate: resource_rate || null,
+                group_limit: group_limit || null,
+                last_wipe: last_wipe || null,
+                next_wipe: next_wipe || null,
+                next_wipe_full: next_wipe_full || null,
+                next_wipe_is_bp: String(next_wipe_is_bp) || null,
+                next_wipe_hour: parseInt(next_wipe_hour) || null,
+                next_wipe_dow: parseInt(next_wipe_dow) || null,
+                next_wipe_week: parseInt(next_wipe_week) || null,
+                main_wipe_hour: parseInt(main_wipe_hour) || null,
+                main_wipe_dow: parseInt(main_wipe_dow) || null,
+                sec_wipe_hour: parseInt(sec_wipe_hour) || null,
+                sec_wipe_dow: parseInt(sec_wipe_dow) || null,
+                bp_wipe_hour: parseInt(bp_wipe_hour) || null,
+                bp_wipe_dow: parseInt(bp_wipe_dow) || null,
+            })
+            .where(eq(parsed_server.id, parseInt(bm_id, 10)))
+            .execute();
     }
 }
 
-module.exports = {
+export {
     fetch_api_url,
     count_keywords_in_string,
     create_bm_server_list_api_call_string,

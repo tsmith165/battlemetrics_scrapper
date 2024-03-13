@@ -1,8 +1,25 @@
-// /tests/run_scrapper.js
-require('module-alias/register');
-const Scrapper = require('@libs/scrapper.js');
-const yargs = require('yargs/yargs');
-const { hideBin } = require('yargs/helpers');
+// /tests/run_scrapper.ts
+import Scrapper from '../libs/Scrapper.js';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+
+interface Arguments {
+    i: boolean;
+    interval: boolean;
+    a: boolean;
+    all: boolean;
+    c: string;
+    country: string;
+    m: number;
+    min_players: number;
+    p: number;
+    page_length: number;
+    d: number;
+    distance: number;
+    _: (string | number)[];
+    $0: string;
+    [x: string]: unknown;
+}
 
 const argv = yargs(hideBin(process.argv)).options({
     i: { type: 'boolean', alias: 'interval', default: false },
@@ -11,7 +28,7 @@ const argv = yargs(hideBin(process.argv)).options({
     m: { type: 'number', alias: 'min_players', default: 2 },
     p: { type: 'number', alias: 'page_length', default: 25 },
     d: { type: 'number', alias: 'distance', default: 5000 },
-}).argv;
+}).argv as Arguments;
 
 const scrapper = new Scrapper({
     max_days_old: 300,
