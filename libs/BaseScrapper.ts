@@ -87,6 +87,10 @@ class BaseScrapper {
         }
     }
 
+    async run_all_servers(): Promise<void> {
+        throw new Error('run_all_servers() must be implemented by subclasses');
+    }
+
     // Placeholder for child class implementation
     async run_scrapper(): Promise<void> {
         throw new Error('run_scrapper() must be implemented by subclasses');
@@ -100,6 +104,7 @@ class BaseScrapper {
         }
         response.data.map(async (server: any) => await this.parse_single_server(server));
         console.log('Successfully parsed server list data.');
+        return;
     }
 
     async parse_single_server(server: any): Promise<void> {
@@ -282,7 +287,7 @@ class BaseScrapper {
 
         // console.log(`Final ${id} Data to Insert:`, final_data_to_insert);
         console.log(
-            `Insterting bm_id ${id} with attr keys: [${Object.keys(
+            `Inserting bm_id ${id} with attr keys: [${Object.keys(
                 max_attributes
             )}] | main_wipe_hour: ${main_wipe_hour} | main_wipe_dow: ${main_wipe_dow} | sec_wipe_hour: ${sec_wipe_hour} | sec_wipe_dow: ${sec_wipe_dow} | bp_wipe_hour: ${bp_wipe_hour} | bp_wipe_dow: ${bp_wipe_dow}`
         );
@@ -364,34 +369,6 @@ class BaseScrapper {
         // );
 
         return [main_wipe_hour, main_wipe_dow, sec_wipe_hour, sec_wipe_dow, bp_wipe_hour, bp_wipe_dow];
-    }
-
-    async run_all_servers(): Promise<void> {
-        let hasMorePages = true;
-        let nextPageUrl = create_bm_server_list_api_call_string(this.country, this.distance, this.min_players, this.page_length); // Start with the initial URL
-
-        while (hasMorePages) {
-            console.log('Fetching next page at:', nextPageUrl);
-            let data = await fetch_api_url(nextPageUrl);
-            if (!data || !data.data) {
-                console.log('No data found. Exiting scrapper...');
-                hasMorePages = false;
-                break;
-            }
-
-            console.log('Parsing server list data...');
-            await this.parse_server_list_data(data);
-
-            // Check if there's a "next" link for pagination
-            console.log(`data.links.next: ${data.links.next}`);
-            nextPageUrl = data.links && data.links.next ? data.links.next : null;
-            hasMorePages = !!nextPageUrl; // Continue if there's a next page
-
-            if (hasMorePages) {
-                console.log('Pausing for 5 seconds...');
-                await new Promise((resolve) => setTimeout(resolve, 5000));
-            }
-        }
     }
 }
 
