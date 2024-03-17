@@ -7,7 +7,8 @@
         "node": "18.x"
     },
     "scripts": {
-        "start": "node_modules/.bin/ts-node --esm tests/run_scrapper.ts -a -d 50000"
+        "build": "tsc",
+        "start": "yarn build && node dist/tests/run_scrapper.js -a -d 50000"
     },
     "dependencies": {
         "@planetscale/database": "^1.16.0",
