@@ -37,6 +37,7 @@ async function insert_scrapper_stats(
     const duration = moment.duration(end_time.diff(start_time));
     const scrapper_duration_seconds = duration.asSeconds();
 
+    console.log('Inserting scrapper stats into database...');
     await db
         .insert(rw_scrapper_stats)
         .values({
