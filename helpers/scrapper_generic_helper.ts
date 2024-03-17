@@ -1,7 +1,7 @@
 // /helpers/scrapper_generic_helper.ts
 import axios, { AxiosResponse } from 'axios';
 import db from '../db/drizzle.js';
-import { parsed_server } from '../db/schema.js';
+import { rw_parsed_server } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 import {
@@ -145,8 +145,8 @@ async function search_for_existing_and_combine(bm_id: string, data_to_compare: a
         // console.log('Searching for existing data for BM ID:', bm_id);
         const existing_data = await db
             .select()
-            .from(parsed_server)
-            .where(eq(parsed_server.id, parseInt(bm_id, 10)))
+            .from(rw_parsed_server)
+            .where(eq(rw_parsed_server.id, parseInt(bm_id, 10)))
             .execute();
 
         // console.log('Existing Data:', existing_data);
@@ -201,14 +201,14 @@ async function insert_into_db(data: any): Promise<void> {
 
     const existing_data = await db
         .select()
-        .from(parsed_server)
-        .where(eq(parsed_server.id, parseInt(bm_id, 10)))
+        .from(rw_parsed_server)
+        .where(eq(rw_parsed_server.id, parseInt(bm_id, 10)))
         .execute();
     const new_record = !existing_data;
 
     if (new_record) {
         await db
-            .insert(parsed_server)
+            .insert(rw_parsed_server)
             .values({
                 id: parseInt(bm_id, 10),
                 rank: rank,
@@ -237,7 +237,7 @@ async function insert_into_db(data: any): Promise<void> {
             .execute();
     } else {
         await db
-            .update(parsed_server)
+            .update(rw_parsed_server)
             .set({
                 rank: rank,
                 title: title,
@@ -261,7 +261,7 @@ async function insert_into_db(data: any): Promise<void> {
                 bp_wipe_hour: parseInt(bp_wipe_hour) || null,
                 bp_wipe_dow: parseInt(bp_wipe_dow) || null,
             })
-            .where(eq(parsed_server.id, parseInt(bm_id, 10)))
+            .where(eq(rw_parsed_server.id, parseInt(bm_id, 10)))
             .execute();
     }
 }

@@ -2,7 +2,7 @@
 
 import moment, { Moment } from 'moment';
 import db from '../db/drizzle.js';
-import { scrapper_stats } from '../db/schema.js';
+import { rw_scrapper_stats } from '../db/schema.js';
 
 interface ServerAttributeStats {
     [key: string]: number;
@@ -38,7 +38,7 @@ async function insert_scrapper_stats(
     const scrapper_duration_seconds = duration.asSeconds();
 
     await db
-        .insert(scrapper_stats)
+        .insert(rw_scrapper_stats)
         .values({
             scrapper_duration: Math.floor(scrapper_duration_seconds),
             servers_parsed: servers_parsed,

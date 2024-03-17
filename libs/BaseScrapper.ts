@@ -1,7 +1,7 @@
 // /libs/BaseScrapper.ts
 import moment from 'moment-timezone';
 import db from '../db/drizzle.js';
-import { WipeHistory, wipe_history } from '../db/schema.js';
+import { WipeHistory, rw_wipe_history } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm/expressions';
 
 import { BM_DATE_FORMAT } from '../utils/bm_scrapper_constants.js';
@@ -187,15 +187,15 @@ class BaseScrapper {
             // Check if the wipe time exists in the database
             let wipe_time_row = await db
                 .select()
-                .from(wipe_history)
-                .where(and(eq(wipe_history.bm_id, parseInt(id)), eq(wipe_history.wipe_time, rust_last_wipe)))
+                .from(rw_wipe_history)
+                .where(and(eq(rw_wipe_history.bm_id, parseInt(id)), eq(rw_wipe_history.wipe_time, rust_last_wipe)))
                 .limit(1)
                 .execute();
 
             // If the wipe time doesn't exist, insert it
             if (!wipe_time_row) {
                 await db
-                    .insert(wipe_history)
+                    .insert(rw_wipe_history)
                     .values({
                         bm_id: parseInt(id),
                         wipe_time: rust_last_wipe,
@@ -209,9 +209,9 @@ class BaseScrapper {
 
             // pull wipe_time field for all records with id = server.id
             wipe_times = (await db
-                .select({ wipe_time: wipe_history.wipe_time })
-                .from(wipe_history)
-                .where(eq(wipe_history.bm_id, parseInt(id)))
+                .select({ wipe_time: rw_wipe_history.wipe_time })
+                .from(rw_wipe_history)
+                .where(eq(rw_wipe_history.bm_id, parseInt(id)))
                 .execute()) as WipeHistory[];
         } catch (error) {
             console.error('Error executing database query:', error);

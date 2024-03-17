@@ -9,7 +9,7 @@ datasource db {
   url      = env("PS_DATABASE_URL")
 }
 
-model parsed_server {
+model rw_parsed_server {
   id              Int  @id // Battle Metrics ID
   timestamp       DateTime @default(now())
   rank            Int      // Battle Metrics Rank
@@ -37,7 +37,7 @@ model parsed_server {
   bp_wipe_dow     Int?     // Day of week for blueprint wipe (0-6)
 }
 
-model wipe_history {
+model rw_wipe_history {
   id          Int  @id @default(autoincrement())
   bm_id       Int       // Battle Metrics ID
   timestamp   DateTime @default(now())
@@ -48,7 +48,7 @@ model wipe_history {
   attributes  Json? // Wipe Attributes
 }
 
-model scrapper_stats {
+model rw_scrapper_stats {
   id                Int      @id @default(autoincrement())
   date              DateTime @default(now())
   scrapper_duration Int?
@@ -57,7 +57,7 @@ model scrapper_stats {
   servers_posted    Int?
 }
 
-model server_network {
+model rw_server_network {
   id           Int      @id // Network ID
   bm_ids       String       // Rank Dictionary
   name         String       // Server Title

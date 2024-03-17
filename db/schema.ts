@@ -1,7 +1,7 @@
 import { int, mysqlTable, varchar, datetime, text } from 'drizzle-orm/mysql-core';
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 
-export const parsed_server = mysqlTable('parsed_server', {
+export const rw_parsed_server = mysqlTable('rw_parsed_server', {
     id: int('id').primaryKey(),
     timestamp: datetime('timestamp').default(new Date()),
     rank: int('rank'),
@@ -29,10 +29,10 @@ export const parsed_server = mysqlTable('parsed_server', {
     bp_wipe_dow: int('bp_wipe_dow'),
 });
 
-export type ParsedServer = InferSelectModel<typeof parsed_server>;
-export type InsertParsedServer = InferInsertModel<typeof parsed_server>;
+export type ParsedServer = InferSelectModel<typeof rw_parsed_server>;
+export type InsertParsedServer = InferInsertModel<typeof rw_parsed_server>;
 
-export const wipe_history = mysqlTable('wipe_history', {
+export const rw_wipe_history = mysqlTable('rw_wipe_history', {
     id: int('id').autoincrement().primaryKey(),
     bm_id: int('bm_id'),
     timestamp: datetime('timestamp').default(new Date()),
@@ -43,10 +43,10 @@ export const wipe_history = mysqlTable('wipe_history', {
     attributes: text('attributes'),
 });
 
-export type WipeHistory = InferSelectModel<typeof wipe_history>;
-export type InsertWipeHistory = InferInsertModel<typeof wipe_history>;
+export type WipeHistory = InferSelectModel<typeof rw_wipe_history>;
+export type InsertWipeHistory = InferInsertModel<typeof rw_wipe_history>;
 
-export const scrapper_stats = mysqlTable('scrapper_stats', {
+export const rw_scrapper_stats = mysqlTable('rw_scrapper_stats', {
     id: int('id').autoincrement().primaryKey(),
     date: datetime('date').default(new Date()),
     scrapper_duration: int('scrapper_duration'),
@@ -55,15 +55,15 @@ export const scrapper_stats = mysqlTable('scrapper_stats', {
     servers_posted: int('servers_posted'),
 });
 
-export type ScrapperStats = InferSelectModel<typeof scrapper_stats>;
-export type InsertScrapperStats = InferInsertModel<typeof scrapper_stats>;
+export type ScrapperStats = InferSelectModel<typeof rw_scrapper_stats>;
+export type InsertScrapperStats = InferInsertModel<typeof rw_scrapper_stats>;
 
-export const server_network = mysqlTable('server_network', {
+export const rw_server_network = mysqlTable('rw_server_network', {
     id: int('id').primaryKey(),
     bm_ids: varchar('bm_ids', { length: 255 }),
     name: varchar('name', { length: 255 }),
     region: varchar('region', { length: 255 }),
 });
 
-export type ServerNetwork = InferSelectModel<typeof server_network>;
-export type InsertServerNetwork = InferInsertModel<typeof server_network>;
+export type ServerNetwork = InferSelectModel<typeof rw_server_network>;
+export type InsertServerNetwork = InferInsertModel<typeof rw_server_network>;
