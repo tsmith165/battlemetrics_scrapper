@@ -99,7 +99,7 @@ async function main(): Promise<void> {
             select: { wipe_time: true },
         });
 
-        const wipeTimesArray = wipeTimes.map((wipeTime: Wipe_History) => wipeTime.wipe_time);
+        const wipeTimesArray = wipeTimes.map((wipeTime: { wipe_time: string }) => wipeTime.wipe_time);
         console.log(`Wipe times:`, wipeTimesArray);
 
         // 4. Parse the wipe times for the `bm_id` to find the main_wipe_hour / main_wipe_dow,
