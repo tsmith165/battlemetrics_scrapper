@@ -8,7 +8,8 @@
     },
     "scripts": {
         "build": "tsc",
-        "start": "yarn build && node dist/tests/run_scrapper.js -a -d 50000"
+        "start-all": "yarn build && node dist/tests/run_scrapper.js -a -d 50000",
+        "start-interval": "yarn build && node dist/tests/run_scrapper.js -i -d 50000"
     },
     "dependencies": {
         "@neondatabase/serverless": "^0.9.1",
