@@ -1,6 +1,4 @@
 import { pgTable, integer, varchar, timestamp, text, serial } from 'drizzle-orm/pg-core';
-import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-
 export const rw_parsed_server = pgTable('rw_parsed_server', {
     id: serial('id').primaryKey(),
     timestamp: timestamp('timestamp').defaultNow(),
@@ -28,10 +26,6 @@ export const rw_parsed_server = pgTable('rw_parsed_server', {
     bp_wipe_hour: integer('bp_wipe_hour'),
     bp_wipe_dow: integer('bp_wipe_dow'),
 });
-
-export type ParsedServer = InferSelectModel<typeof rw_parsed_server>;
-export type InsertParsedServer = InferInsertModel<typeof rw_parsed_server>;
-
 export const rw_wipe_history = pgTable('rw_wipe_history', {
     id: serial('id').primaryKey(),
     bm_id: integer('bm_id'),
@@ -42,10 +36,6 @@ export const rw_wipe_history = pgTable('rw_wipe_history', {
     description: text('description'),
     attributes: text('attributes'),
 });
-
-export type WipeHistory = InferSelectModel<typeof rw_wipe_history>;
-export type InsertWipeHistory = InferInsertModel<typeof rw_wipe_history>;
-
 export const rw_scrapper_stats = pgTable('rw_scrapper_stats', {
     id: serial('id').primaryKey(),
     date: timestamp('date').defaultNow(),
@@ -54,16 +44,9 @@ export const rw_scrapper_stats = pgTable('rw_scrapper_stats', {
     servers_skipped: integer('servers_skipped'),
     servers_posted: integer('servers_posted'),
 });
-
-export type ScrapperStats = InferSelectModel<typeof rw_scrapper_stats>;
-export type InsertScrapperStats = InferInsertModel<typeof rw_scrapper_stats>;
-
 export const rw_server_network = pgTable('rw_server_network', {
     id: serial('id').primaryKey(),
     bm_ids: varchar('bm_ids'),
     name: varchar('name'),
     region: varchar('region'),
 });
-
-export type ServerNetwork = InferSelectModel<typeof rw_server_network>;
-export type InsertServerNetwork = InferInsertModel<typeof rw_server_network>;
