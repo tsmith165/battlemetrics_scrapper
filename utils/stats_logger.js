@@ -1,6 +1,4 @@
-// File: /utils/stats_logger.js
-
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 import cron from 'node-cron';
 import moment from 'moment-timezone';
