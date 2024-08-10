@@ -1,3 +1,5 @@
+// https://api.battlemetrics.com/servers?filter%5Bgame%5D=rust&filter%5Bstatus%5D=online&filter%5Bcountries%5D%5B%5D=US&page%5Bsize%5D=50
+
 const BM_API_BASE_URL = 'https://api.battlemetrics.com/servers';
 const BASE_FILTER = 'filter[game]=rust&filter[status]=online';
 const COUNTRY_FILTER = 'filter[countries][]';
@@ -9,7 +11,7 @@ const WIPE_FILTER = 'sort=-details.rust_last_wipe';
 const MY_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
 const BM_DATE_FORMAT = 'YYYY-MM-DDTHH:mm:ss.SSS[Z]';
 
-const REGION_MAP: { [key: string]: string } = {
+const REGION_MAP = {
     US: 'North America',
     BO: 'South America',
     DE: 'Europe',

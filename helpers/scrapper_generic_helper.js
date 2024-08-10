@@ -1,5 +1,4 @@
-// /helpers/scrapper_generic_helper.ts
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { db, rw_parsed_server } from '../db/db.js';
 import { eq } from 'drizzle-orm';
 import {
@@ -11,35 +10,32 @@ import {
     PAGE_LEN_FILTER,
 } from '../utils/bm_scrapper_constants.js';
 import { ATTRIBUTE_GROUPS, ATTRIBUTE_KEYWORDS } from '../utils/bm_scrapper_attributes.js';
+import { logError } from '../utils/stats_logger.js';
 
-async function fetch_api_url(api_url: string): Promise<any> {
+async function fetch_api_url(api_url) {
     try {
-        const response: AxiosResponse = await axios.get(api_url);
+        const response = await axios.get(api_url);
         console.log('API call successful. Returning data.');
         return response.data;
     } catch (error) {
         console.error('API call failed:', error);
         if (axios.isAxiosError(error)) {
             if (error.response) {
-                // The request was made and the server responded with a status code
                 console.error('Response status:', error.response.status);
                 console.error('Response data:', error.response.data);
             } else if (error.request) {
-                // The request was made but no response was received
                 console.error('No response received:', error.request);
             } else {
-                // Something happened in setting up the request that triggered an Error
                 console.error('Error message:', error.message);
             }
         } else {
-            // Some other type of error occurred
             console.error('Unknown error:', error);
         }
         return null;
     }
 }
 
-function count_keywords_in_string(keywords: string[], string: string): number {
+function count_keywords_in_string(keywords, string) {
     const lowerCaseString = string.toLowerCase();
 
     return keywords.reduce((count, keyword) => {
@@ -48,25 +44,22 @@ function count_keywords_in_string(keywords: string[], string: string): number {
     }, 0);
 }
 
-function create_bm_server_list_api_call_string(country: string, distance: number, min_players: number, page_length: number): string {
+function create_bm_server_list_api_call_string(country, distance, min_players, page_length) {
     const api_call_string = `${BM_API_BASE_URL}?${BASE_FILTER}&${COUNTRY_FILTER}=${country}&${DISTANCE_FILTER}=${distance}&${PLAYERS_FILTER}=${min_players}&${PAGE_LEN_FILTER}=${page_length}&sort=-details.rust_last_wipe`;
     console.log(`Server List API Call: ${api_call_string}`);
     return api_call_string;
 }
 
-function parse_server_attributes(
-    title: string | null | undefined,
-    description: string | null | undefined
-): { [key: string]: { [key: string]: number } } {
+function parse_server_attributes(title, description) {
     title = title ? title.toLowerCase() : '';
     description = description ? description.toLowerCase() : '';
 
-    const server_attributes: { [key: string]: { [key: string]: number } } = {};
+    const server_attributes = {};
 
     for (const [groupKey, attributeKeys] of Object.entries(ATTRIBUTE_GROUPS)) {
         server_attributes[groupKey] = {};
 
-        (attributeKeys as string[]).forEach((attribute: string) => {
+        attributeKeys.forEach((attribute) => {
             const keywords = ATTRIBUTE_KEYWORDS[attribute];
             const count = count_keywords_in_string(keywords, title || '') + count_keywords_in_string(keywords, description || '');
             if (count > 0) {
@@ -107,11 +100,9 @@ function parse_server_attributes(
     return server_attributes;
 }
 
-function parse_grouped_attributes_for_max(server_attributes: {
-    [key: string]: { [key: string]: number };
-}): [{ [key: string]: string }, { [key: string]: number }] {
-    const max_attributes: { [key: string]: string } = {};
-    const server_attribute_stats: { [key: string]: number } = {};
+function parse_grouped_attributes_for_max(server_attributes) {
+    const max_attributes = {};
+    const server_attribute_stats = {};
 
     for (const [groupKey, attributes] of Object.entries(server_attributes)) {
         if (Object.keys(attributes).length === 0) {
@@ -138,129 +129,77 @@ function parse_grouped_attributes_for_max(server_attributes: {
     return [max_attributes, server_attribute_stats];
 }
 
-async function search_for_existing_and_combine(bm_id: string, data_to_compare: any): Promise<any> {
+async function search_for_existing_and_combine(bm_id, data_to_compare) {
     try {
-        // console.log('Searching for existing data for BM ID:', bm_id);
         const existing_data = await db
             .select()
             .from(rw_parsed_server)
             .where(eq(rw_parsed_server.id, parseInt(bm_id, 10)))
             .execute();
 
-        // console.log('Existing Data:', existing_data);
-
-        if (!existing_data) {
+        if (!existing_data || existing_data.length === 0) {
             console.log(`No existing BM ID ${bm_id} records found - inserting new record.`);
             return data_to_compare;
         }
 
-        const combined_data: { [key: string]: any } = {};
+        const parsedExistingData = {
+            ...existing_data[0],
+            last_wipe: safeParseDateString(existing_data[0].last_wipe),
+            next_wipe: safeParseDateString(existing_data[0].next_wipe),
+            next_full_wipe: safeParseDateString(existing_data[0].next_full_wipe),
+        };
 
-        // console.log(`Found existing BM ID ${bm_id} records - combining existing and new data.`);
-        for (const [key, value] of Object.entries(data_to_compare)) {
-            if (value === null || value === undefined || value === '' || value === 'N/A' || value === 'null') {
-                combined_data[key] = (existing_data as { [key: string]: any })[key];
-            } else {
-                combined_data[key] = value;
-            }
-        }
+        const combined_data = { ...parsedExistingData, ...data_to_compare };
+
+        // Ensure date fields are properly handled
+        combined_data.last_wipe = safeParseDateString(combined_data.last_wipe);
+        combined_data.next_wipe = safeParseDateString(combined_data.next_wipe);
+        combined_data.next_full_wipe = safeParseDateString(combined_data.next_full_wipe);
 
         return combined_data;
     } catch (error) {
         console.error('Error searching for existing data:', error);
+        await logError(`Error searching for existing data: ${error}`);
         throw error;
     }
 }
 
-async function insert_into_db(data: any): Promise<void> {
-    const {
-        bm_id,
-        rank,
-        ip,
-        title,
-        region,
-        players,
-        attributes,
-        last_wipe,
-        next_wipe,
-        next_wipe_full,
-        next_wipe_is_bp,
-        next_wipe_hour,
-        next_wipe_dow,
-        next_wipe_week,
-        main_wipe_hour,
-        main_wipe_dow,
-        sec_wipe_hour,
-        sec_wipe_dow,
-        bp_wipe_hour,
-        bp_wipe_dow,
-    } = data;
-    const { game_mode, wipe_schedule, resource_rate, group_limit } = attributes;
+function isValidDate(d) {
+    return d instanceof Date && !isNaN(d);
+}
 
-    const existing_data = await db
-        .select()
-        .from(rw_parsed_server)
-        .where(eq(rw_parsed_server.id, parseInt(bm_id, 10)))
-        .execute();
-    const new_record = !existing_data;
+function safeParseDateString(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return isValidDate(date) ? date : null;
+}
 
-    if (new_record) {
+async function insert_into_db(data) {
+    try {
+        const processedData = {
+            ...data,
+            last_wipe: safeParseDateString(data.last_wipe),
+            next_wipe: safeParseDateString(data.next_wipe),
+            next_full_wipe: safeParseDateString(data.next_full_wipe),
+        };
+
+        console.log('Processed data before insertion:', processedData);
+
         await db
             .insert(rw_parsed_server)
-            .values({
-                id: parseInt(bm_id, 10),
-                rank: rank,
-                ip: ip,
-                title: title,
-                region: typeof region === 'string' ? region : 'US',
-                players: players,
-                wipe_schedule: 'N/A',
-                game_mode: game_mode || null,
-                resource_rate: resource_rate || null,
-                group_limit: group_limit || null,
-                last_wipe: last_wipe || null,
-                next_wipe: next_wipe || null,
-                next_wipe_full: next_wipe_full || null,
-                next_wipe_is_bp: String(next_wipe_is_bp) || null,
-                next_wipe_hour: parseInt(next_wipe_hour) || null,
-                next_wipe_dow: parseInt(next_wipe_dow) || null,
-                next_wipe_week: parseInt(next_wipe_week) || null,
-                main_wipe_hour: parseInt(main_wipe_hour) || null,
-                main_wipe_dow: parseInt(main_wipe_dow) || null,
-                sec_wipe_hour: parseInt(sec_wipe_hour) || null,
-                sec_wipe_dow: parseInt(sec_wipe_dow) || null,
-                bp_wipe_hour: parseInt(bp_wipe_hour) || null,
-                bp_wipe_dow: parseInt(bp_wipe_dow) || null,
+            .values(processedData)
+            .onConflictDoUpdate({
+                target: rw_parsed_server.id,
+                set: processedData,
             })
             .execute();
-    } else {
-        await db
-            .update(rw_parsed_server)
-            .set({
-                rank: rank,
-                title: title,
-                region: typeof attributes.region === 'string' ? attributes.region : 'US',
-                players: players,
-                wipe_schedule: 'N/A',
-                game_mode: game_mode || null,
-                resource_rate: resource_rate || null,
-                group_limit: group_limit || null,
-                last_wipe: last_wipe || null,
-                next_wipe: next_wipe || null,
-                next_wipe_full: next_wipe_full || null,
-                next_wipe_is_bp: String(next_wipe_is_bp) || null,
-                next_wipe_hour: parseInt(next_wipe_hour) || null,
-                next_wipe_dow: parseInt(next_wipe_dow) || null,
-                next_wipe_week: parseInt(next_wipe_week) || null,
-                main_wipe_hour: parseInt(main_wipe_hour) || null,
-                main_wipe_dow: parseInt(main_wipe_dow) || null,
-                sec_wipe_hour: parseInt(sec_wipe_hour) || null,
-                sec_wipe_dow: parseInt(sec_wipe_dow) || null,
-                bp_wipe_hour: parseInt(bp_wipe_hour) || null,
-                bp_wipe_dow: parseInt(bp_wipe_dow) || null,
-            })
-            .where(eq(rw_parsed_server.id, parseInt(bm_id, 10)))
-            .execute();
+
+        console.log('Data inserted successfully');
+    } catch (error) {
+        console.error('Error inserting data into database:', error);
+        console.error('Problematic data:', data);
+        await logError(`Error inserting data into database: ${error}`);
+        throw error;
     }
 }
 
@@ -272,4 +211,5 @@ export {
     parse_grouped_attributes_for_max,
     search_for_existing_and_combine,
     insert_into_db,
+    safeParseDateString,
 };
