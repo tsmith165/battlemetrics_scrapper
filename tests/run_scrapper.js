@@ -10,6 +10,7 @@ const yargsArgv = yargs(hideBin(process.argv))
         m: { type: 'number', alias: 'min_players', default: 2 },
         p: { type: 'number', alias: 'page_length', default: 25 },
         d: { type: 'number', alias: 'distance', default: 5000 },
+        a: { type: 'boolean', alias: 'all', default: false },
     })
     .parseSync();
 
@@ -21,6 +22,7 @@ const options = {
     distance: yargsArgv.d,
     max_days_old: 300,
     min_rank: 5000,
+    all: yargsArgv.a,
 };
 
 initializeStatsLogger();

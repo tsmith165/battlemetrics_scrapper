@@ -1,9 +1,8 @@
-import fs from 'fs';
+import fs from 'fs/promises'; // Use the promises API for async file operations
 import path from 'path';
 import cron from 'node-cron';
 import moment from 'moment-timezone';
 import { sendEmail } from './emails/resend_utils.js';
-import StatsEmailTemplate from './emails/templates/StatsEmailTemplate.js';
 
 const STATS_FILE_PATH = path.join(process.cwd(), 'scrapper_stats.log');
 
