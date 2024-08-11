@@ -3,11 +3,11 @@
 # dependencies
 /node_modules
 /.pnp
+/dist
 .pnp.js
 
 # local env files
 .env*.local
-.env.*
 .env
 
 # vercel
