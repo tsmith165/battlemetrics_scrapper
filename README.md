@@ -133,7 +133,7 @@ This project is a server scraper for Rust game servers, which collects and store
 
 -   To view logs:
     ```bash
-    sudo journalctl -u rust-server-scraper
+    sudo journalctl -u rust-server-scraper -f
     ```
 
 ## Updating the Scraper
